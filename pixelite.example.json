@@ -1,0 +1,8 @@
+{
+    "root_path": "C:\\Users\\username\\Documents\\Photos",
+    "thumbnail": {
+        "store_path": "C:\\Users\\username\\Documents\\pixelite\\thumbnails",
+        "jpeg_quality": 90,
+        "max_dimension_px": 500
+    }
+}
