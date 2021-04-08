@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"azurestud.io/pixelite/config"
+	"azurestud.io/pixelite/globaldb"
 	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
 )
@@ -99,6 +100,8 @@ func (m *manager) buildThumbnail(imgPath string, signalCond *sync.Cond) {
 
 	// serve the original image directly, as it is small enough.
 	if thumbnailWidth == 0 && thumbnailHeight == 0 {
+		globaldb.RegisterThumbnail(imgPath, imgPath)
+
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
 
@@ -109,11 +112,17 @@ func (m *manager) buildThumbnail(imgPath string, signalCond *sync.Cond) {
 		return
 	}
 
+	// create thumbnail image.
 	thumbnailName := m.getRandomFileName(gThumbnailFileNameLen) + ".jpg"
 	thumbnailPath := filepath.Join(thumbnailStorePath, thumbnailName)
 
 	thumbnail := transform.Resize(image, thumbnailWidth, thumbnailHeight, transform.Lanczos)
 	err = imgio.Save(thumbnailPath, thumbnail, imgio.JPEGEncoder(thumbnailJpegQuality))
+
+	// register to thumbnail db once the image was made.
+	if err == nil {
+		globaldb.RegisterThumbnail(imgPath, thumbnailPath)
+	}
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -141,7 +150,14 @@ func Initialize() error {
 		mutex:      sync.Mutex{},
 	}
 
-	// TODO : load up thumbnail informations from global db.
+	thumbnailRows, err := globaldb.LoadAllThumbnails()
+	if err != nil {
+		return err
+	}
+
+	for _, row := range thumbnailRows {
+		gManager.thumbnails[row.ImagePath] = row.ThumbnailPath
+	}
 
 	return nil
 }

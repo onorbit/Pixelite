@@ -12,8 +12,9 @@ type ThumbnailCfg struct {
 }
 
 type Config struct {
-	RootPath  string       `json:"root_path"`
-	Thumbnail ThumbnailCfg `json:"thumbnail"`
+	RootPath     string       `json:"root_path"`
+	GlobalDBPath string       `json:"global_db_path"`
+	Thumbnail    ThumbnailCfg `json:"thumbnail"`
 }
 
 var gConfig Config

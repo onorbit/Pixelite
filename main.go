@@ -8,12 +8,16 @@ import (
 	"strings"
 
 	"azurestud.io/pixelite/config"
+	"azurestud.io/pixelite/globaldb"
 	"azurestud.io/pixelite/thumbnail"
 	"github.com/labstack/echo"
 )
 
 func main() {
 	if err := config.Initialize("pixelite.json"); err != nil {
+		panic(err)
+	}
+	if err := globaldb.Initialize(config.Get().GlobalDBPath); err != nil {
 		panic(err)
 	}
 	if err := thumbnail.Initialize(); err != nil {
