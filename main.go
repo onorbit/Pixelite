@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
-	"strings"
 
 	"azurestud.io/pixelite/config"
 	"azurestud.io/pixelite/globaldb"
+	"azurestud.io/pixelite/image"
 	"azurestud.io/pixelite/thumbnail"
 	"github.com/labstack/echo"
 )
@@ -46,23 +46,6 @@ type DirectoryEntry struct {
 	Type DirectoryEntryType `json:"type"`
 }
 
-var imageExt = []string{
-	".jpg",
-	".png",
-}
-
-func isImageFile(fileName string) bool {
-	fileExt := filepath.Ext(fileName)
-	fileExt = strings.ToLower(fileExt)
-	for _, ext := range imageExt {
-		if ext == fileExt {
-			return true
-		}
-	}
-
-	return false
-}
-
 func listPath(c echo.Context) error {
 	subPath := c.Param("*")
 	if len(subPath) <= 0 {
@@ -89,7 +72,7 @@ func listPath(c echo.Context) error {
 				Type: Directory,
 			}
 			entryList = append(entryList, newEntry)
-		} else if isImageFile(entry.Name()) {
+		} else if image.IsImageFile(entry.Name()) {
 			newEntry := DirectoryEntry{
 				Name: entry.Name(),
 				Type: ImageFile,
