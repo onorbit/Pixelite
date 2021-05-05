@@ -2,18 +2,15 @@ package library
 
 import (
 	"errors"
-	"io/ioutil"
-	"path/filepath"
 	"sync"
-
-	"azurestud.io/pixelite/image"
 )
 
 var ErrLibraryAlreadyRegistered = errors.New("Library with given root path is already registered")
 var ErrLibraryScanInProgress = errors.New("Library with given root path is being scanned")
 
 type manager struct {
-	libraries map[string]Library
+	libraries map[string]*Library
+	rootPaths map[string]struct{}
 	progress  map[string]struct{}
 	mutex     sync.Mutex
 }
@@ -23,7 +20,7 @@ var gManager manager
 func (m *manager) createLibrary(rootPath string) error {
 	m.mutex.Lock()
 
-	if _, ok := m.libraries[rootPath]; ok == true {
+	if _, ok := m.rootPaths[rootPath]; ok == true {
 		m.mutex.Unlock()
 		return ErrLibraryAlreadyRegistered
 	}
@@ -36,46 +33,36 @@ func (m *manager) createLibrary(rootPath string) error {
 	m.progress[rootPath] = struct{}{}
 	m.mutex.Unlock()
 
-	newLibrary := Library{
-		RootPath: rootPath,
-		Albums:   make(map[string]struct{}),
-	}
-
-	// perform scan.
-	dirs := make([]string, 0, 1)
-	dirs = append(dirs, rootPath)
-
-	for len(dirs) != 0 {
-		currPath := dirs[len(dirs)-1]
-		dirs = dirs[0 : len(dirs)-1]
-
-		content, err := ioutil.ReadDir(currPath)
-		if err != nil {
-			return err
-		}
-
-		for _, entry := range content {
-			if entry.IsDir() == true {
-				path := filepath.Join(currPath, entry.Name())
-				dirs = append(dirs, path)
-			} else if image.IsImageFile(entry.Name()) == true {
-				newLibrary.Albums[currPath] = struct{}{}
-				break
-			}
-		}
+	newLibrary := newLibrary(rootPath)
+	if err := newLibrary.scan(); err != nil {
+		return err
 	}
 
 	m.mutex.Lock()
 	delete(m.progress, rootPath)
-	m.libraries[rootPath] = newLibrary
+	m.libraries[newLibrary.id] = &newLibrary
+	m.rootPaths[rootPath] = struct{}{}
 	m.mutex.Unlock()
 
 	return nil
 }
 
+func (m *manager) getLibrary(id string) *Library {
+	if _, ok := m.libraries[id]; ok == false {
+		return nil
+	}
+
+	return m.libraries[id]
+}
+
+//-----------------------------------------------------------------------------
+// public functions
+//-----------------------------------------------------------------------------
+
 func Initialize() error {
 	gManager = manager{
-		libraries: make(map[string]Library),
+		libraries: make(map[string]*Library),
+		rootPaths: make(map[string]struct{}),
 		progress:  make(map[string]struct{}),
 		mutex:     sync.Mutex{},
 	}
@@ -85,4 +72,21 @@ func Initialize() error {
 
 func CreateLibrary(rootPath string) error {
 	return gManager.createLibrary(rootPath)
+}
+
+func ListLibrary() []LibrarySummeryDesc {
+	ret := make([]LibrarySummeryDesc, 0, len(gManager.libraries))
+	for _, library := range gManager.libraries {
+		summary := LibrarySummeryDesc{
+			Id:   library.id,
+			Desc: library.desc,
+		}
+		ret = append(ret, summary)
+	}
+
+	return ret
+}
+
+func GetLibrary(id string) *Library {
+	return gManager.getLibrary(id)
 }

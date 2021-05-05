@@ -26,6 +26,9 @@ func main() {
 	e := echo.New()
 	e.GET("/apis/list/*", handler.ListPath)
 	e.GET("/apis/thumbnail/*", handler.ServeThumbnail)
+	e.GET("/apis/libraries", handler.ListLibrary)
+	e.GET("/apis/library/:id", handler.GetLibrary)
+	e.POST("/apis/library", handler.CreateLibrary)
 
 	e.Static("/statics", "statics")
 	e.File("/thumbnails/*", "views/thumbnails.html")
