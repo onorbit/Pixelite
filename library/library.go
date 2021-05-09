@@ -18,9 +18,10 @@ type Library struct {
 }
 
 func newLibrary(rootPath string) Library {
+	id := fmt.Sprintf("%08x", rand.Uint32())
 	newLibrary := Library{
-		id:       fmt.Sprintf("%08x", rand.Int()),
-		desc:     "",
+		id:       id,
+		desc:     id,
 		rootPath: rootPath,
 		albums:   make(map[string]album.Album),
 	}

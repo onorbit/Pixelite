@@ -33,15 +33,14 @@ function populateThumbnails(subPath, fileList) {
 
 function bootStrap() {
     // extract subpath.
-    let path = sC.getPath();
-    let subPath = path.replace(/\/thumbnails\//, '');
+    let pathParam = sC.parsePath('/thumbnails/<str:subPath>', sC.getPath());
 
     // request file list.
-    let apiUrl = sC.renderPath('/apis/list/<str:subPath>', { subPath: subPath });
+    let apiUrl = sC.renderPath('/apis/list/<str:subPath>', pathParam);
     sC.ajaxGet(apiUrl, function(status, response) {
         if (status == 200) {
             let resultObj = JSON.parse(response);
-            populateThumbnails(subPath, resultObj);
+            populateThumbnails(pathParam.subPath, resultObj);
         }
     });
 }

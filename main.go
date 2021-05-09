@@ -31,6 +31,8 @@ func main() {
 	e.POST("/apis/library", handler.CreateLibrary)
 
 	e.Static("/statics", "statics")
+	e.File("/libraries", "views/libraries.html")
+	e.File("/library/:id", "views/library.html")
 	e.File("/thumbnails/*", "views/thumbnails.html")
 
 	e.Logger.Fatal(e.Start(":10900"))

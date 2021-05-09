@@ -4,9 +4,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"path/filepath"
 
-	"azurestud.io/pixelite/config"
 	"azurestud.io/pixelite/image"
 	"azurestud.io/pixelite/thumbnail"
 	"github.com/labstack/echo"
@@ -35,9 +33,7 @@ func ListPath(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	rootPath := config.Get().RootPath
-	targetPath := filepath.Join(rootPath, subPath)
-	content, err := ioutil.ReadDir(targetPath)
+	content, err := ioutil.ReadDir(subPath)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -73,9 +69,7 @@ func ServeThumbnail(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	rootPath := config.Get().RootPath
-	imgPath := filepath.Join(rootPath, subPath)
-	thumbnailPath := thumbnail.GetThumbnailPath(imgPath)
+	thumbnailPath := thumbnail.GetThumbnailPath(subPath)
 	if len(thumbnailPath) == 0 {
 		return c.NoContent(http.StatusInternalServerError)
 	}
