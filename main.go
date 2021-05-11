@@ -1,12 +1,12 @@
 package main
 
 import (
-	"azurestud.io/pixelite/config"
-	"azurestud.io/pixelite/globaldb"
-	"azurestud.io/pixelite/handler"
-	"azurestud.io/pixelite/library"
-	"azurestud.io/pixelite/thumbnail"
 	"github.com/labstack/echo"
+	"github.com/onorbit/pixelite/config"
+	"github.com/onorbit/pixelite/globaldb"
+	"github.com/onorbit/pixelite/handler"
+	"github.com/onorbit/pixelite/library"
+	"github.com/onorbit/pixelite/thumbnail"
 )
 
 func main() {

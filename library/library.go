@@ -6,8 +6,8 @@ import (
 	"math/rand"
 	"path/filepath"
 
-	"azurestud.io/pixelite/album"
-	"azurestud.io/pixelite/image"
+	"github.com/onorbit/pixelite/album"
+	"github.com/onorbit/pixelite/image"
 )
 
 type Library struct {

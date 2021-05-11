@@ -1,4 +1,4 @@
-module azurestud.io/pixelite
+module github.com/onorbit/pixelite
 
 go 1.16
 

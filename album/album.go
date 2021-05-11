@@ -3,7 +3,7 @@ package album
 import (
 	"io/ioutil"
 
-	"azurestud.io/pixelite/image"
+	"github.com/onorbit/pixelite/image"
 )
 
 type Album struct {

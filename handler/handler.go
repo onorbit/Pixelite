@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"azurestud.io/pixelite/image"
-	"azurestud.io/pixelite/thumbnail"
 	"github.com/labstack/echo"
+	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/thumbnail"
 )
 
 type DirectoryEntryType byte

@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"azurestud.io/pixelite/config"
-	"azurestud.io/pixelite/globaldb"
 	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
+	"github.com/onorbit/pixelite/config"
+	"github.com/onorbit/pixelite/globaldb"
 )
 
 type manager struct {

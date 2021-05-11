@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"azurestud.io/pixelite/library"
 	"github.com/labstack/echo"
+	"github.com/onorbit/pixelite/library"
 )
 
 func CreateLibrary(c echo.Context) error {
