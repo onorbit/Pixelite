@@ -112,16 +112,22 @@ func (m *manager) buildThumbnail(imgPath string, signalCond *sync.Cond) {
 		return
 	}
 
-	// create thumbnail image.
-	thumbnailName := m.getRandomFileName(gThumbnailFileNameLen) + ".jpg"
-	thumbnailPath := filepath.Join(thumbnailStorePath, thumbnailName)
+	// prepare thumbnail path
+	thumbnailName := m.getRandomFileName(gThumbnailFileNameLen)
+	thumbnailPath := filepath.Join(thumbnailStorePath, thumbnailName[0:2], thumbnailName[2:4])
+	if err := os.MkdirAll(thumbnailPath, 0700); err != nil {
+		// TODO : handle the error properly.
+		return
+	}
 
+	// create thumbnail image.
+	outputPath := filepath.Join(thumbnailPath, thumbnailName) + ".jpg"
 	thumbnail := transform.Resize(image, thumbnailWidth, thumbnailHeight, transform.Lanczos)
-	err = imgio.Save(thumbnailPath, thumbnail, imgio.JPEGEncoder(thumbnailJpegQuality))
+	err = imgio.Save(outputPath, thumbnail, imgio.JPEGEncoder(thumbnailJpegQuality))
 
 	// register to thumbnail db once the image was made.
 	if err == nil {
-		globaldb.RegisterThumbnail(imgPath, thumbnailPath)
+		globaldb.RegisterThumbnail(imgPath, outputPath)
 	}
 
 	m.mutex.Lock()
@@ -129,7 +135,7 @@ func (m *manager) buildThumbnail(imgPath string, signalCond *sync.Cond) {
 
 	delete(m.progress, imgPath)
 	if err == nil {
-		m.thumbnails[imgPath] = thumbnailPath
+		m.thumbnails[imgPath] = outputPath
 	}
 	signalCond.Broadcast()
 
