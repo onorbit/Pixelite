@@ -1,6 +1,9 @@
 package main
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/labstack/echo"
 	"github.com/onorbit/pixelite/config"
 	"github.com/onorbit/pixelite/globaldb"
@@ -10,6 +13,8 @@ import (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	if err := config.Initialize("pixelite.json"); err != nil {
 		panic(err)
 	}

@@ -17,6 +17,7 @@ func CreateLibrary(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	// TODO : the API should return appropriate response.
 	return c.NoContent(http.StatusOK)
 }
 

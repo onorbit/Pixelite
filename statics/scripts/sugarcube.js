@@ -5,13 +5,12 @@ sC = {};
 //-----------------------------------------------------------------------------
 
 sC.getPath = function() {
-    let url = new URL(window.location.href);
-    return url.pathname;
+    return window.location.pathname;
 }
 
 sC.parseURLPattern = function(pattern) {
     // remove trailing slash in pattern
-    if (pattern.endsWith('/') == true) {
+    if (pattern[pattern.length - 1] == '/') {
         pattern = pattern.substr(0, pattern.length - 1);
     }
 
@@ -102,7 +101,7 @@ sC.parsePath = function(pattern, path) {
     }
 
     // remove trailing slash in url.
-    if (path.endsWith('/') == true) {
+    if (pattern[pattern.length - 1] == '/') {
         path = path.substr(0, path.length - 1);
     }
 

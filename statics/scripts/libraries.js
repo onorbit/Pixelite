@@ -22,12 +22,31 @@ function populateLibraries(libList) {
     }
 }
 
+function submitNewLibrary() {
+    let inputElem = document.getElementById('rootPath');
+
+    let rootPath = inputElem.value;
+    if (rootPath.length == 0) {
+        return;
+    }
+
+    let apiUrl = '/apis/library';
+    sC.ajaxPost(apiUrl, {'rootPath': rootPath}, function(status, response) {
+        if (status != 200) {
+            return;
+        }
+
+        // TODO : the API should return appropriate response.
+        location.reload();
+    });
+}
+
 function bootStrap() {
     // request library list.
     let apiUrl = '/apis/libraries';
     sC.ajaxGet(apiUrl, function(status, response) {
         if (status == 200) {
-            let libList = JSON.parse(response)
+            let libList = JSON.parse(response);
             populateLibraries(libList);
         }
     });
