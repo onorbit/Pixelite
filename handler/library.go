@@ -21,11 +21,6 @@ func CreateLibrary(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func ListLibrary(c echo.Context) error {
-	list := library.ListLibrary()
-	return c.JSON(http.StatusOK, list)
-}
-
 func GetLibrary(c echo.Context) error {
 	id := c.Param("id")
 	library := library.GetLibrary(id)
@@ -35,4 +30,18 @@ func GetLibrary(c echo.Context) error {
 
 	libDesc := library.Describe()
 	return c.JSON(http.StatusOK, libDesc)
+}
+
+func DeleteLibrary(c echo.Context) error {
+	id := c.Param("id")
+	if err := library.DeleteLibrary(id); err != nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+func ListLibrary(c echo.Context) error {
+	list := library.ListLibrary()
+	return c.JSON(http.StatusOK, list)
 }

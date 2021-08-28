@@ -1,9 +1,7 @@
 package library
 
 import (
-	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"path/filepath"
 
 	"github.com/onorbit/pixelite/album"
@@ -17,11 +15,10 @@ type Library struct {
 	albums   map[string]album.Album
 }
 
-func newLibrary(rootPath string) Library {
-	id := fmt.Sprintf("%08x", rand.Uint32())
+func newLibrary(id, rootPath, desc string) Library {
 	newLibrary := Library{
 		id:       id,
-		desc:     id,
+		desc:     desc,
 		rootPath: rootPath,
 		albums:   make(map[string]album.Album),
 	}

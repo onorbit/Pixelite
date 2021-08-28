@@ -16,6 +16,7 @@ func Initialize(dbFilePath string) error {
 	gDatabase = database
 
 	initThumbnails()
+	initLibraries()
 
 	return nil
 }

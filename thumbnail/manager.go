@@ -142,6 +142,10 @@ func (m *manager) buildThumbnail(imgPath string, signalCond *sync.Cond) {
 	return
 }
 
+//-----------------------------------------------------------------------------
+// public functions
+//-----------------------------------------------------------------------------
+
 func Initialize() error {
 	thumbnailStorePath := config.Get().Thumbnail.StorePath
 	if err := os.MkdirAll(thumbnailStorePath, 0700); err != nil {
