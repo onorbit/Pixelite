@@ -1,11 +1,12 @@
-function makeAlbumElem(albumSubPath) {
-    let libUrl = sC.renderPath('/thumbnails/<str:path>', {path: encodeURIComponent(albumSubPath)});
+function makeAlbumElem(libraryId, albumSubPath) {
+    let albumUrl = sC.renderPath('/thumbnails/<str:libid>/<str:path>',
+        {libid: libraryId, path: encodeURIComponent(albumSubPath)});
 
     let divElem = document.createElement("div");
     divElem.innerText = albumSubPath;
 
     let linkElem = document.createElement("a");
-    linkElem.href = libUrl;
+    linkElem.href = albumUrl;
 
     linkElem.appendChild(divElem);
 
@@ -13,11 +14,14 @@ function makeAlbumElem(albumSubPath) {
 }
 
 function populateLibrary(libDesc) {
+    let pathParam = sC.parsePath('/library/<str:libId>', sC.getPath());
+    let libraryId = pathParam.libId;
+
     let wrapperDiv = document.getElementById('wrapper');
 
     for (let i = 0; i < libDesc.albums.length; i++) {
         let albumSubPath = libDesc.albums[i];
-        let albumElem = makeAlbumElem(albumSubPath);
+        let albumElem = makeAlbumElem(libraryId, albumSubPath);
         wrapperDiv.appendChild(albumElem);
     }
 }

@@ -7,15 +7,21 @@ import (
 )
 
 type Album struct {
+	id   string
 	path string
 }
 
-func NewAlbum(path string) Album {
+func NewAlbum(id, path string) Album {
 	newAlbum := Album{
+		id:   id,
 		path: path,
 	}
 
 	return newAlbum
+}
+
+func (a Album) GetID() string {
+	return a.id
 }
 
 func (a Album) GetPath() string {

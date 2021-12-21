@@ -16,14 +16,15 @@ function makeThumbnailElem(url) {
     return linkElem;
 }
 
-function populateThumbnails(subPath, fileList) {
+function populateThumbnails(libId, albumId, fileList) {
     let wrapperDiv = document.getElementById('wrapper');
 
     for (let i = 0; i < fileList.length; i++) {
         let fileEntry = fileList[i];
 
         if (fileEntry.type == 1) {
-            let thumbnailUrl = sC.renderPath('/apis/thumbnail/<str:subPath>/<str:fileName>', {subPath: subPath, fileName: fileEntry.name });
+            let thumbnailUrl = sC.renderPath('/apis/thumbnail/<str:libId>/<str:albumId>/<str:fileName>',
+                { libId: libId, albumId: albumId, fileName: encodeURIComponent(fileEntry.name) });
             let thumbnailElem = makeThumbnailElem(thumbnailUrl);
 
             wrapperDiv.appendChild(thumbnailElem);
@@ -33,14 +34,14 @@ function populateThumbnails(subPath, fileList) {
 
 function bootStrap() {
     // extract subpath.
-    let pathParam = sC.parsePath('/thumbnails/<str:subPath>', sC.getPath());
+    let pathParam = sC.parsePath('/thumbnails/<str:libId>/<str:albumId>', sC.getPath());
 
     // request file list.
-    let apiUrl = sC.renderPath('/apis/list/<str:subPath>', pathParam);
+    let apiUrl = sC.renderPath('/apis/list/<str:libId>/<str:albumId>', pathParam);
     sC.ajaxGet(apiUrl, function(status, response) {
         if (status == 200) {
             let resultObj = JSON.parse(response);
-            populateThumbnails(pathParam.subPath, resultObj);
+            populateThumbnails(pathParam.libId, pathParam.albumId, resultObj);
         }
     });
 }

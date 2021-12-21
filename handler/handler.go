@@ -4,9 +4,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path/filepath"
 
 	"github.com/labstack/echo"
 	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/library"
 	"github.com/onorbit/pixelite/thumbnail"
 )
 
@@ -23,17 +25,28 @@ type DirectoryEntry struct {
 }
 
 func ListPath(c echo.Context) error {
-	subPath := c.Param("*")
-	if len(subPath) <= 0 {
-		return c.NoContent(http.StatusBadRequest)
-	}
+	// acquire Library and belonging Album from input.
+	libraryID := c.Param("libid")
+	albumID := c.Param("albumid")
 
-	subPath, err := url.PathUnescape(subPath)
+	albumID, err := url.QueryUnescape(albumID)
 	if err != nil {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	content, err := ioutil.ReadDir(subPath)
+	targetLibrary := library.GetLibrary(libraryID)
+	if targetLibrary == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	targetAlbum := targetLibrary.GetAlbum(albumID)
+	if targetAlbum == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	// list content of album path.
+	albumPath := targetAlbum.GetPath()
+	content, err := ioutil.ReadDir(albumPath)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -59,17 +72,34 @@ func ListPath(c echo.Context) error {
 }
 
 func ServeThumbnail(c echo.Context) error {
-	subPath := c.Param("*")
-	if len(subPath) <= 0 {
-		return c.NoContent(http.StatusBadRequest)
-	}
+	// prepare parameters.
+	libraryID := c.Param("libid")
 
-	subPath, err := url.PathUnescape(subPath)
+	albumID := c.Param("albumid")
+	albumID, err := url.QueryUnescape(albumID)
 	if err != nil {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	thumbnailPath := thumbnail.GetThumbnailPath(subPath)
+	fileName := c.Param("filename")
+	fileName, err = url.QueryUnescape(fileName)
+	if err != nil {
+		return c.NoContent(http.StatusBadRequest)
+	}
+
+	// compose target file path.
+	targetLibrary := library.GetLibrary(libraryID)
+	if targetLibrary == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	targetAlbum := targetLibrary.GetAlbum(albumID)
+	if targetAlbum == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	filePath := filepath.Join(targetAlbum.GetPath(), fileName)
+	thumbnailPath := thumbnail.GetThumbnailPath(filePath)
 	if len(thumbnailPath) == 0 {
 		return c.NoContent(http.StatusInternalServerError)
 	}

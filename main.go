@@ -29,8 +29,8 @@ func main() {
 	}
 
 	e := echo.New()
-	e.GET("/apis/list/*", handler.ListPath)
-	e.GET("/apis/thumbnail/*", handler.ServeThumbnail)
+	e.GET("/apis/list/:libid/:albumid", handler.ListPath)
+	e.GET("/apis/thumbnail/:libid/:albumid/:filename", handler.ServeThumbnail)
 
 	e.POST("/apis/library", handler.CreateLibrary)
 	e.GET("/apis/library/:id", handler.GetLibrary)
@@ -40,7 +40,7 @@ func main() {
 	e.Static("/statics", "statics")
 	e.File("/libraries", "views/libraries.html")
 	e.File("/library/:id", "views/library.html")
-	e.File("/thumbnails/*", "views/thumbnails.html")
+	e.File("/thumbnails/:libid/:albumid", "views/thumbnails.html")
 
 	e.Logger.Fatal(e.Start(":10900"))
 }

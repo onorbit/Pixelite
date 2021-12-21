@@ -35,6 +35,7 @@ func (l Library) scan() error {
 	subPaths = append(subPaths, l.rootPath)
 
 	for len(subPaths) != 0 {
+		// pop an entry from subpath list.
 		currPath := subPaths[len(subPaths)-1]
 		subPaths = subPaths[0 : len(subPaths)-1]
 
@@ -45,10 +46,14 @@ func (l Library) scan() error {
 
 		for _, entry := range content {
 			if entry.IsDir() == true {
+				// found a directory. push to subpath list for further traverse.
 				path := filepath.Join(currPath, entry.Name())
 				subPaths = append(subPaths, path)
 			} else if image.IsImageFile(entry.Name()) == true {
-				l.albums[currPath] = album.NewAlbum(currPath)
+				// found an image. register this path as an Album.
+				albumID, _ := filepath.Rel(l.rootPath, currPath)
+				albumID = filepath.ToSlash(albumID)
+				l.albums[albumID] = album.NewAlbum(albumID, currPath)
 				break
 			}
 		}
@@ -69,8 +74,17 @@ func (l Library) Describe() LibraryDesc {
 	}
 
 	for _, album := range l.albums {
-		desc.Albums = append(desc.Albums, album.GetPath())
+		desc.Albums = append(desc.Albums, album.GetID())
 	}
 
 	return desc
+}
+
+// TODO : returning pointer here could be dangerous. need to fix.
+func (l Library) GetAlbum(albumID string) *album.Album {
+	if ret, ok := l.albums[albumID]; ok {
+		return &ret
+	}
+
+	return nil
 }
