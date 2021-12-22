@@ -31,6 +31,7 @@ func main() {
 	e := echo.New()
 	e.GET("/apis/list/:libid/:albumid", handler.ListPath)
 	e.GET("/apis/thumbnail/:libid/:albumid/:filename", handler.ServeThumbnail)
+	e.GET("/apis/image/:libid/:albumid/:filename", handler.ServeImage)
 
 	e.POST("/apis/library", handler.CreateLibrary)
 	e.GET("/apis/library/:id", handler.GetLibrary)

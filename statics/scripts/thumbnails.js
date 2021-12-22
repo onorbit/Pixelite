@@ -1,13 +1,19 @@
-function makeThumbnailElem(url) {
+function makeThumbnailElem(libId, albumId, fileName) {
+    let thumbnailUrl = sC.renderPath('/apis/thumbnail/<str:libId>/<str:albumId>/<str:fileName>',
+                { libId: libId, albumId: albumId, fileName: encodeURIComponent(fileName) });
+
     let imgElem = document.createElement("img");
-    imgElem.src = url;
+    imgElem.src = thumbnailUrl;
     imgElem.className = 'thumbnail';
 
     let divElem = document.createElement("div");
     divElem.className = 'thumbnail';
 
+    let rawImageUrl = sC.renderPath('/apis/image/<str:libId>/<str:albumId>/<str:fileName>',
+                { libId: libId, albumId: albumId, fileName: encodeURIComponent(fileName) });
+
     let linkElem = document.createElement("a");
-    linkElem.href = '#';
+    linkElem.href = rawImageUrl;
     linkElem.className = 'thumbnail';
 
     divElem.appendChild(imgElem);
@@ -23,10 +29,7 @@ function populateThumbnails(libId, albumId, fileList) {
         let fileEntry = fileList[i];
 
         if (fileEntry.type == 1) {
-            let thumbnailUrl = sC.renderPath('/apis/thumbnail/<str:libId>/<str:albumId>/<str:fileName>',
-                { libId: libId, albumId: albumId, fileName: encodeURIComponent(fileEntry.name) });
-            let thumbnailElem = makeThumbnailElem(thumbnailUrl);
-
+            let thumbnailElem = makeThumbnailElem(libId, albumId, encodeURIComponent(fileEntry.name));
             wrapperDiv.appendChild(thumbnailElem);
         }
     }

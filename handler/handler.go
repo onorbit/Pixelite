@@ -106,3 +106,34 @@ func ServeThumbnail(c echo.Context) error {
 
 	return c.File(thumbnailPath)
 }
+
+func ServeImage(c echo.Context) error {
+	// prepare parameters.
+	libraryID := c.Param("libid")
+
+	albumID := c.Param("albumid")
+	albumID, err := url.QueryUnescape(albumID)
+	if err != nil {
+		return c.NoContent(http.StatusBadRequest)
+	}
+
+	fileName := c.Param("filename")
+	fileName, err = url.QueryUnescape(fileName)
+	if err != nil {
+		return c.NoContent(http.StatusBadRequest)
+	}
+
+	// compose target file path.
+	targetLibrary := library.GetLibrary(libraryID)
+	if targetLibrary == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	targetAlbum := targetLibrary.GetAlbum(albumID)
+	if targetAlbum == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	filePath := filepath.Join(targetAlbum.GetPath(), fileName)
+	return c.File(filePath)
+}
