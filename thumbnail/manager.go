@@ -7,10 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anthonynsimon/bild/imgio"
-	"github.com/anthonynsimon/bild/transform"
 	"github.com/onorbit/pixelite/config"
 	"github.com/onorbit/pixelite/globaldb"
+	"github.com/onorbit/pixelite/image"
 )
 
 type manager struct {
@@ -69,63 +68,25 @@ func (m *manager) getRandomFileName(length int) string {
 }
 
 func (m *manager) buildThumbnail(imgPath string, signalCond *sync.Cond) {
-	image, err := imgio.Open(imgPath)
-	if err != nil {
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
-
-		delete(m.progress, imgPath)
-		signalCond.Broadcast()
-
-		return
-	}
-
-	bounds := image.Bounds()
-	imageWidth := bounds.Dx()
-	imageHeight := bounds.Dy()
-
+	// make path for thumbnail.
 	thumbnailStorePath := config.Get().Thumbnail.StorePath
-	thumbnailDim := config.Get().Thumbnail.MaxDimension
-	thumbnailJpegQuality := config.Get().Thumbnail.JpegQuality
-
-	thumbnailWidth := 0
-	thumbnailHeight := 0
-	if imageWidth > imageHeight && imageWidth > thumbnailDim {
-		thumbnailWidth = thumbnailDim
-		thumbnailHeight = int(float32(imageHeight) * (float32(thumbnailDim) / float32(imageWidth)))
-	} else if imageHeight > thumbnailDim {
-		thumbnailWidth = int(float32(imageWidth) * (float32(thumbnailDim) / float32(imageHeight)))
-		thumbnailHeight = thumbnailDim
-	}
-
-	// serve the original image directly, as it is small enough.
-	if thumbnailWidth == 0 && thumbnailHeight == 0 {
-		globaldb.RegisterThumbnail(imgPath, imgPath)
-
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
-
-		delete(m.progress, imgPath)
-		m.thumbnails[imgPath] = imgPath
-		signalCond.Broadcast()
-
-		return
-	}
-
-	// prepare thumbnail path
 	thumbnailName := m.getRandomFileName(gThumbnailFileNameLen)
 	thumbnailPath := filepath.Join(thumbnailStorePath, thumbnailName[0:2], thumbnailName[2:4])
+
 	if err := os.MkdirAll(thumbnailPath, 0700); err != nil {
 		// TODO : handle the error properly.
 		return
 	}
 
-	// create thumbnail image.
 	outputPath := filepath.Join(thumbnailPath, thumbnailName) + ".jpg"
-	thumbnail := transform.Resize(image, thumbnailWidth, thumbnailHeight, transform.Lanczos)
-	err = imgio.Save(outputPath, thumbnail, imgio.JPEGEncoder(thumbnailJpegQuality))
 
-	// register to thumbnail db once the image was made.
+	// get parameters for making thumbnail.
+	thumbnailDim := config.Get().Thumbnail.MaxDimension
+	thumbnailJpegQuality := config.Get().Thumbnail.JpegQuality
+
+	// make actual thumbnail.
+	err := image.MakeThumbnail(imgPath, outputPath, thumbnailDim, thumbnailJpegQuality)
+
 	if err == nil {
 		globaldb.RegisterThumbnail(imgPath, outputPath)
 	}
@@ -138,8 +99,6 @@ func (m *manager) buildThumbnail(imgPath string, signalCond *sync.Cond) {
 		m.thumbnails[imgPath] = outputPath
 	}
 	signalCond.Broadcast()
-
-	return
 }
 
 //-----------------------------------------------------------------------------
