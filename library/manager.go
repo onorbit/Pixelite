@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/onorbit/pixelite/globaldb"
+	"github.com/onorbit/pixelite/database/globaldb"
 )
 
 var ErrLibraryAlreadyRegistered = errors.New("Library with given root path is already registered")

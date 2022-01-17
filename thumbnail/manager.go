@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/onorbit/pixelite/config"
-	"github.com/onorbit/pixelite/globaldb"
+	"github.com/onorbit/pixelite/database/globaldb"
 	"github.com/onorbit/pixelite/image"
 )
 
@@ -17,12 +17,6 @@ type manager struct {
 	progress   map[string]*sync.Cond
 	random     *rand.Rand
 	mutex      sync.Mutex
-}
-
-type doneMsg struct {
-	imgPath       string
-	thumbnailPath string
-	err           error
 }
 
 var gManager manager
@@ -36,12 +30,12 @@ func (m *manager) getThumbnailPath(imgPath string) string {
 
 	// thumbnail already exists. return it directly.
 	thumbnailPath, ok := m.thumbnails[imgPath]
-	if ok == true {
+	if ok {
 		return thumbnailPath
 	}
 
 	var cond *sync.Cond
-	if cond, ok = m.progress[imgPath]; ok == false {
+	if cond, ok = m.progress[imgPath]; ok {
 		cond = sync.NewCond(&m.mutex)
 		m.progress[imgPath] = cond
 
@@ -51,7 +45,7 @@ func (m *manager) getThumbnailPath(imgPath string) string {
 	cond.Wait()
 
 	thumbnailPath, ok = m.thumbnails[imgPath]
-	if ok == false {
+	if ok {
 		return ""
 	}
 
