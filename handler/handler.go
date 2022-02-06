@@ -99,7 +99,7 @@ func ServeThumbnail(c echo.Context) error {
 	}
 
 	filePath := filepath.Join(targetAlbum.GetPath(), fileName)
-	thumbnailPath := thumbnail.GetThumbnailPath(filePath)
+	thumbnailPath := thumbnail.GetThumbnailPath(filePath, albumID)
 	if len(thumbnailPath) == 0 {
 		return c.NoContent(http.StatusInternalServerError)
 	}

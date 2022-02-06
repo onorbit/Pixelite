@@ -1,6 +1,8 @@
 package thumbnail
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -24,7 +26,10 @@ var gManager manager
 var gLetters = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
 var gThumbnailFileNameLen = 32
 
-func (m *manager) getThumbnailPath(imgPath string) string {
+func (m *manager) getThumbnailPath(imgPath, albumID string) string {
+	albumIDHashArr := md5.Sum([]byte(albumID))
+	albumIDHash := hex.EncodeToString(albumIDHashArr[:])
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -35,17 +40,17 @@ func (m *manager) getThumbnailPath(imgPath string) string {
 	}
 
 	var cond *sync.Cond
-	if cond, ok = m.progress[imgPath]; ok {
+	if cond, ok = m.progress[imgPath]; !ok {
 		cond = sync.NewCond(&m.mutex)
 		m.progress[imgPath] = cond
 
-		go m.buildThumbnail(imgPath, cond)
+		go m.buildThumbnail(imgPath, albumIDHash, cond)
 	}
 
 	cond.Wait()
 
 	thumbnailPath, ok = m.thumbnails[imgPath]
-	if ok {
+	if !ok {
 		return ""
 	}
 
@@ -61,17 +66,17 @@ func (m *manager) getRandomFileName(length int) string {
 	return string(ret)
 }
 
-func (m *manager) buildThumbnail(imgPath string, signalCond *sync.Cond) {
+func (m *manager) buildThumbnail(imgPath, albumIDHash string, signalCond *sync.Cond) {
 	// make path for thumbnail.
 	thumbnailStorePath := config.Get().Thumbnail.StorePath
-	thumbnailName := m.getRandomFileName(gThumbnailFileNameLen)
-	thumbnailPath := filepath.Join(thumbnailStorePath, thumbnailName[0:2], thumbnailName[2:4])
+	thumbnailPath := filepath.Join(thumbnailStorePath, albumIDHash)
 
 	if err := os.MkdirAll(thumbnailPath, 0700); err != nil {
 		// TODO : handle the error properly.
 		return
 	}
 
+	thumbnailName := m.getRandomFileName(gThumbnailFileNameLen)
 	outputPath := filepath.Join(thumbnailPath, thumbnailName) + ".jpg"
 
 	// get parameters for making thumbnail.
@@ -125,6 +130,6 @@ func Initialize() error {
 	return nil
 }
 
-func GetThumbnailPath(imgPath string) string {
-	return gManager.getThumbnailPath(imgPath)
+func GetThumbnailPath(imgPath, albumID string) string {
+	return gManager.getThumbnailPath(imgPath, albumID)
 }
