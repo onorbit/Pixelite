@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"math/rand"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,17 +28,31 @@ var gManager manager
 var gLetters = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
 var gThumbnailFileNameLen = 32
 
-func (m *manager) getThumbnailPath(imgPath, albumID string) string {
+func (m *manager) getThumbnailPath(fileName, albumPath, albumID string) string {
+	// make thumbnail directory.
 	albumIDHashArr := md5.Sum([]byte(albumID))
 	albumIDHash := hex.EncodeToString(albumIDHashArr[:])
+	thumbnailDir := filepath.Join(config.Get().Thumbnail.StorePath, albumIDHash)
+
+	if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
+		// TODO : handle the error properly.
+		return ""
+	}
+
+	// make thumbnail file path.
+	thumbnailName := strings.TrimSuffix(fileName, filepath.Ext(fileName)) + ".jpg"
+	thumbnailPath := filepath.Join(thumbnailDir, thumbnailName)
+
+	// make original image file path.
+	imgPath := path.Join(albumPath, fileName)
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	// thumbnail already exists. return it directly.
-	thumbnailPath, ok := m.thumbnails[imgPath]
+	existThumbnailPath, ok := m.thumbnails[imgPath]
 	if ok {
-		return thumbnailPath
+		return existThumbnailPath
 	}
 
 	var cond *sync.Cond
@@ -44,7 +60,7 @@ func (m *manager) getThumbnailPath(imgPath, albumID string) string {
 		cond = sync.NewCond(&m.mutex)
 		m.progress[imgPath] = cond
 
-		go m.buildThumbnail(imgPath, albumIDHash, cond)
+		go m.buildThumbnail(imgPath, thumbnailPath, cond)
 	}
 
 	cond.Wait()
@@ -57,37 +73,16 @@ func (m *manager) getThumbnailPath(imgPath, albumID string) string {
 	return thumbnailPath
 }
 
-func (m *manager) getRandomFileName(length int) string {
-	ret := make([]rune, length)
-	for i := range ret {
-		ret[i] = gLetters[m.random.Intn(len(gLetters))]
-	}
-
-	return string(ret)
-}
-
-func (m *manager) buildThumbnail(imgPath, albumIDHash string, signalCond *sync.Cond) {
-	// make path for thumbnail.
-	thumbnailStorePath := config.Get().Thumbnail.StorePath
-	thumbnailPath := filepath.Join(thumbnailStorePath, albumIDHash)
-
-	if err := os.MkdirAll(thumbnailPath, 0700); err != nil {
-		// TODO : handle the error properly.
-		return
-	}
-
-	thumbnailName := m.getRandomFileName(gThumbnailFileNameLen)
-	outputPath := filepath.Join(thumbnailPath, thumbnailName) + ".jpg"
-
+func (m *manager) buildThumbnail(imgPath, thumbnailPath string, signalCond *sync.Cond) {
 	// get parameters for making thumbnail.
 	thumbnailDim := config.Get().Thumbnail.MaxDimension
 	thumbnailJpegQuality := config.Get().Thumbnail.JpegQuality
 
 	// make actual thumbnail.
-	err := image.MakeThumbnail(imgPath, outputPath, thumbnailDim, thumbnailJpegQuality)
+	err := image.MakeThumbnail(imgPath, thumbnailPath, thumbnailDim, thumbnailJpegQuality)
 
 	if err == nil {
-		globaldb.RegisterThumbnail(imgPath, outputPath)
+		globaldb.RegisterThumbnail(imgPath, thumbnailPath)
 	}
 
 	m.mutex.Lock()
@@ -95,7 +90,7 @@ func (m *manager) buildThumbnail(imgPath, albumIDHash string, signalCond *sync.C
 
 	delete(m.progress, imgPath)
 	if err == nil {
-		m.thumbnails[imgPath] = outputPath
+		m.thumbnails[imgPath] = thumbnailPath
 	}
 	signalCond.Broadcast()
 }
@@ -130,6 +125,6 @@ func Initialize() error {
 	return nil
 }
 
-func GetThumbnailPath(imgPath, albumID string) string {
-	return gManager.getThumbnailPath(imgPath, albumID)
+func GetThumbnailPath(fileName, albumPath, albumID string) string {
+	return gManager.getThumbnailPath(fileName, albumPath, albumID)
 }

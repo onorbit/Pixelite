@@ -98,8 +98,7 @@ func ServeThumbnail(c echo.Context) error {
 		return c.NoContent(http.StatusNotFound)
 	}
 
-	filePath := filepath.Join(targetAlbum.GetPath(), fileName)
-	thumbnailPath := thumbnail.GetThumbnailPath(filePath, albumID)
+	thumbnailPath := thumbnail.GetThumbnailPath(fileName, targetAlbum.GetPath(), albumID)
 	if len(thumbnailPath) == 0 {
 		return c.NoContent(http.StatusInternalServerError)
 	}
