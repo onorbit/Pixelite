@@ -28,11 +28,11 @@ var gManager manager
 var gLetters = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
 var gThumbnailFileNameLen = 32
 
-func (m *manager) getThumbnailPath(fileName, albumPath, albumID string) string {
+func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
 	// make thumbnail directory.
 	albumIDHashArr := md5.Sum([]byte(albumID))
 	albumIDHash := hex.EncodeToString(albumIDHashArr[:])
-	thumbnailDir := filepath.Join(config.Get().Thumbnail.StorePath, albumIDHash)
+	thumbnailDir := filepath.Join(config.Get().Thumbnail.StorePath, libraryID, albumIDHash)
 
 	if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
 		// TODO : handle the error properly.
@@ -125,6 +125,6 @@ func Initialize() error {
 	return nil
 }
 
-func GetThumbnailPath(fileName, albumPath, albumID string) string {
-	return gManager.getThumbnailPath(fileName, albumPath, albumID)
+func GetThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
+	return gManager.getThumbnailPath(fileName, albumPath, albumID, libraryID)
 }
