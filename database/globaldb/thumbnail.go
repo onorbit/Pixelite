@@ -5,18 +5,16 @@ import "database/sql"
 var gStmtInsertThumbnail *sql.Stmt
 
 type ThumbnailRow struct {
-	ImagePath     string
-	ThumbnailPath string
+	ImagePath     string `db:"image_path"`
+	ThumbnailPath string `db:"thumbnail_path"`
 }
 
 func initThumbnails() error {
-	stmt, err := gDatabase.Prepare("CREATE TABLE IF NOT EXISTS thumbnails(image_path TEXT PRIMARY KEY, thumbnail_path TEXT)")
-	if err != nil {
+	if _, err := gDatabase.Exec("CREATE TABLE IF NOT EXISTS thumbnails(image_path TEXT PRIMARY KEY, thumbnail_path TEXT)"); err != nil {
 		return err
 	}
-	stmt.Exec()
 
-	stmt, err = gDatabase.Prepare("INSERT INTO thumbnails (image_path, thumbnail_path) VALUES (?, ?)")
+	stmt, err := gDatabase.Prepare("INSERT INTO thumbnails (image_path, thumbnail_path) VALUES (?, ?)")
 	if err != nil {
 		return err
 	}
@@ -31,23 +29,9 @@ func RegisterThumbnail(imagePath, thumbnailPath string) error {
 }
 
 func LoadAllThumbnails() ([]ThumbnailRow, error) {
-	rows, err := gDatabase.Query("SELECT image_path, thumbnail_path FROM thumbnails")
-	// TODO : Query() returns 'no such table' error when the table is newly created. should be handled properly.
-	if err != nil {
+	ret := []ThumbnailRow{}
+	if err := gDatabase.Select(&ret, "SELECT image_path, thumbnail_path FROM thumbnails"); err != nil {
 		return nil, err
-	}
-	defer rows.Close()
-
-	ret := make([]ThumbnailRow, 0)
-	for rows.Next() {
-		var entry ThumbnailRow
-
-		err = rows.Scan(&entry.ImagePath, &entry.ThumbnailPath)
-		if err != nil {
-			return nil, err
-		}
-
-		ret = append(ret, entry)
 	}
 
 	return ret, nil

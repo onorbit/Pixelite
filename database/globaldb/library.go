@@ -6,19 +6,17 @@ var gStmtInsertLibrary *sql.Stmt
 var gStmtDeleteLibrary *sql.Stmt
 
 type LibraryRow struct {
-	ID       string
-	RootPath string
-	Desc     string
+	ID       string `db:"id"`
+	RootPath string `db:"root_path"`
+	Desc     string `db:"desc"`
 }
 
 func initLibraries() error {
-	stmt, err := gDatabase.Prepare("CREATE TABLE IF NOT EXISTS libraries(id TEXT PRIMARY KEY, root_path TEXT, desc TEXT)")
-	if err != nil {
+	if _, err := gDatabase.Exec("CREATE TABLE IF NOT EXISTS libraries(id TEXT PRIMARY KEY, root_path TEXT, desc TEXT)"); err != nil {
 		return err
 	}
-	stmt.Exec()
 
-	stmt, err = gDatabase.Prepare("INSERT INTO libraries(id, root_path, desc) VALUES (?, ?, ?)")
+	stmt, err := gDatabase.Prepare("INSERT INTO libraries(id, root_path, desc) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -44,23 +42,9 @@ func DeleteLibrary(id string) error {
 }
 
 func LoadAllLibraries() ([]LibraryRow, error) {
-	rows, err := gDatabase.Query("SELECT id, root_path, desc FROM libraries")
-	// TODO : Query() returns 'no such table' error when the table is newly created. should be handled properly.
-	if err != nil {
+	ret := []LibraryRow{}
+	if err := gDatabase.Select(&ret, "SELECT id, root_path, desc FROM libraries"); err != nil {
 		return nil, err
-	}
-	defer rows.Close()
-
-	ret := make([]LibraryRow, 0)
-	for rows.Next() {
-		var entry LibraryRow
-
-		err := rows.Scan(&entry.ID, &entry.RootPath, &entry.Desc)
-		if err != nil {
-			return nil, err
-		}
-
-		ret = append(ret, entry)
 	}
 
 	return ret, nil

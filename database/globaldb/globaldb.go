@@ -1,18 +1,18 @@
 package globaldb
 
 import (
-	"database/sql"
-
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var gDatabase *sql.DB
+var gDatabase *sqlx.DB
 
 func Initialize(dbFilePath string) error {
-	database, err := sql.Open("sqlite3", dbFilePath)
+	database, err := sqlx.Connect("sqlite3", dbFilePath)
 	if err != nil {
 		return err
 	}
+
 	gDatabase = database
 
 	initThumbnails()

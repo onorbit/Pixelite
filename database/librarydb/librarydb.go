@@ -1,12 +1,11 @@
 package librarydb
 
 import (
-	"database/sql"
-
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type LibraryDB struct {
 	libraryID string
-	db        *sql.DB
+	db        *sqlx.DB
 }
