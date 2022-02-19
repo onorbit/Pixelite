@@ -3,7 +3,6 @@ package thumbnail
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,56 +15,86 @@ import (
 	"github.com/onorbit/pixelite/image"
 )
 
+type thumbnailedAlbum struct {
+	isDirty             bool
+	albumIDHash         string
+	lastAccessTimestamp time.Time
+}
+
+type thumbnailedAlbumKey struct {
+	libraryID string
+	albumID   string
+}
+
 type manager struct {
-	thumbnails map[string]string
-	progress   map[string]*sync.Cond
-	random     *rand.Rand
-	mutex      sync.Mutex
+	thumbnails        map[string]string // this may be moved into thumbnailedAlbum
+	progress          map[string]*sync.Cond
+	thumbnailedAlbums map[thumbnailedAlbumKey]*thumbnailedAlbum
+	mutex             sync.Mutex
 }
 
 var gManager manager
 
-var gLetters = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
-var gThumbnailFileNameLen = 32
-
 func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
-	// make thumbnail directory.
-	albumIDHashArr := md5.Sum([]byte(albumID))
-	albumIDHash := hex.EncodeToString(albumIDHashArr[:])
-	thumbnailDir := filepath.Join(config.Get().Thumbnail.StorePath, libraryID, albumIDHash)
-
-	if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
-		// TODO : handle the error properly.
-		return ""
-	}
-
-	// make thumbnail file path.
+	// prepare path elements outside of mutex scope.
+	thumbnailLibDir := filepath.Join(config.Get().Thumbnail.StorePath, libraryID)
 	thumbnailName := strings.TrimSuffix(fileName, filepath.Ext(fileName)) + ".jpg"
-	thumbnailPath := filepath.Join(thumbnailDir, thumbnailName)
-
-	// make original image file path.
-	imgPath := path.Join(albumPath, fileName)
+	origImgPath := path.Join(albumPath, fileName)
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	// update access timestamp per album.
+	currTime := time.Now()
+	albumKey := thumbnailedAlbumKey{
+		libraryID: libraryID,
+		albumID:   albumID,
+	}
+
+	albumInfo, ok := m.thumbnailedAlbums[albumKey]
+	if ok {
+		albumInfo.isDirty = true
+		albumInfo.lastAccessTimestamp = currTime
+	} else {
+		albumIDHashArr := md5.Sum([]byte(albumID))
+		albumIDHash := hex.EncodeToString(albumIDHashArr[:])
+
+		albumInfo = &thumbnailedAlbum{
+			isDirty:             true,
+			albumIDHash:         albumIDHash,
+			lastAccessTimestamp: currTime,
+		}
+		m.thumbnailedAlbums[albumKey] = albumInfo
+	}
+
+	// prepare thumbnail file path.
+	thumbnailDir := filepath.Join(thumbnailLibDir, albumInfo.albumIDHash)
+	if !ok {
+		if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
+			// TODO : handle the error properly.
+			return ""
+		}
+	}
+
+	thumbnailPath := filepath.Join(thumbnailDir, thumbnailName)
+
 	// thumbnail already exists. return it directly.
-	existThumbnailPath, ok := m.thumbnails[imgPath]
+	existThumbnailPath, ok := m.thumbnails[origImgPath]
 	if ok {
 		return existThumbnailPath
 	}
 
 	var cond *sync.Cond
-	if cond, ok = m.progress[imgPath]; !ok {
+	if cond, ok = m.progress[origImgPath]; !ok {
 		cond = sync.NewCond(&m.mutex)
-		m.progress[imgPath] = cond
+		m.progress[origImgPath] = cond
 
-		go m.buildThumbnail(imgPath, thumbnailPath, cond)
+		go m.buildThumbnail(origImgPath, thumbnailPath, cond)
 	}
 
 	cond.Wait()
 
-	thumbnailPath, ok = m.thumbnails[imgPath]
+	thumbnailPath, ok = m.thumbnails[origImgPath]
 	if !ok {
 		return ""
 	}
@@ -105,12 +134,11 @@ func Initialize() error {
 		return err
 	}
 
-	random := rand.New(rand.NewSource(time.Hour.Nanoseconds()))
 	gManager = manager{
-		thumbnails: make(map[string]string),
-		progress:   make(map[string]*sync.Cond),
-		random:     random,
-		mutex:      sync.Mutex{},
+		thumbnails:        make(map[string]string),
+		progress:          make(map[string]*sync.Cond),
+		thumbnailedAlbums: make(map[thumbnailedAlbumKey]*thumbnailedAlbum),
+		mutex:             sync.Mutex{},
 	}
 
 	thumbnailRows, err := globaldb.LoadAllThumbnails()

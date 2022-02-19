@@ -15,8 +15,13 @@ func Initialize(dbFilePath string) error {
 
 	gDatabase = database
 
-	initThumbnails()
-	initLibraries()
+	if err = initThumbnails(); err != nil {
+		return err
+	}
+
+	if err = initLibraries(); err != nil {
+		return err
+	}
 
 	return nil
 }
