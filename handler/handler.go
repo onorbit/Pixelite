@@ -24,7 +24,7 @@ type DirectoryEntry struct {
 	Type DirectoryEntryType `json:"type"`
 }
 
-func ListPath(c echo.Context) error {
+func listPath(c echo.Context) error {
 	// acquire Library and belonging Album from input.
 	libraryID := c.Param("libid")
 	albumID := c.Param("albumid")
@@ -71,7 +71,7 @@ func ListPath(c echo.Context) error {
 	return c.JSON(http.StatusOK, entryList)
 }
 
-func ServeThumbnail(c echo.Context) error {
+func serveThumbnail(c echo.Context) error {
 	// prepare parameters.
 	libraryID := c.Param("libid")
 
@@ -106,7 +106,7 @@ func ServeThumbnail(c echo.Context) error {
 	return c.File(thumbnailPath)
 }
 
-func ServeImage(c echo.Context) error {
+func serveImage(c echo.Context) error {
 	// prepare parameters.
 	libraryID := c.Param("libid")
 
@@ -135,4 +135,20 @@ func ServeImage(c echo.Context) error {
 
 	filePath := filepath.Join(targetAlbum.GetPath(), fileName)
 	return c.File(filePath)
+}
+
+func Initialize() error {
+	if err := initRouter(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Cleanup() error {
+	if err := cleanupRouter(); err != nil {
+		return err
+	}
+
+	return nil
 }

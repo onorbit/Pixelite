@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/labstack/echo"
 	"github.com/onorbit/pixelite/config"
 	"github.com/onorbit/pixelite/database/globaldb"
 	"github.com/onorbit/pixelite/handler"
@@ -27,21 +30,15 @@ func main() {
 	if err := library.Initialize(); err != nil {
 		panic(err)
 	}
+	if err := handler.Initialize(); err != nil {
+		panic(err)
+	}
 
-	e := echo.New()
-	e.GET("/apis/list/:libid/:albumid", handler.ListPath)
-	e.GET("/apis/thumbnail/:libid/:albumid/:filename", handler.ServeThumbnail)
-	e.GET("/apis/image/:libid/:albumid/:filename", handler.ServeImage)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	e.POST("/apis/library", handler.CreateLibrary)
-	e.GET("/apis/library/:id", handler.GetLibrary)
-	e.DELETE("/apis/library/:id", handler.DeleteLibrary)
-	e.GET("/apis/libraries", handler.ListLibrary)
+	<-sigs
+	fmt.Printf("shutting down.\n")
 
-	e.Static("/statics", "frontend/statics")
-	e.File("/libraries", "frontend/views/libraries.html")
-	e.File("/library/:id", "frontend/views/library.html")
-	e.File("/thumbnails/:libid/:albumid", "frontend/views/thumbnails.html")
-
-	e.Logger.Fatal(e.Start(":10900"))
+	handler.Cleanup()
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/onorbit/pixelite/library"
 )
 
-func CreateLibrary(c echo.Context) error {
+func createLibrary(c echo.Context) error {
 	rootPath := c.FormValue("rootPath")
 	if len(rootPath) == 0 {
 		return c.NoContent(http.StatusBadRequest)
@@ -21,7 +21,7 @@ func CreateLibrary(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func GetLibrary(c echo.Context) error {
+func getLibrary(c echo.Context) error {
 	id := c.Param("id")
 	library := library.GetLibrary(id)
 	if library == nil {
@@ -32,7 +32,7 @@ func GetLibrary(c echo.Context) error {
 	return c.JSON(http.StatusOK, libDesc)
 }
 
-func DeleteLibrary(c echo.Context) error {
+func deleteLibrary(c echo.Context) error {
 	id := c.Param("id")
 	if err := library.DeleteLibrary(id); err != nil {
 		return c.NoContent(http.StatusNotFound)
@@ -41,7 +41,7 @@ func DeleteLibrary(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func ListLibrary(c echo.Context) error {
+func listLibrary(c echo.Context) error {
 	list := library.ListLibrary()
 	return c.JSON(http.StatusOK, list)
 }
