@@ -16,9 +16,10 @@ import (
 )
 
 type thumbnailedAlbum struct {
-	isDirty             bool
+	thumbnailedAlbumID  int64
 	albumIDHash         string
 	lastAccessTimestamp time.Time
+	thumbnails          map[string]string
 }
 
 type thumbnailedAlbumKey struct {
@@ -27,13 +28,18 @@ type thumbnailedAlbumKey struct {
 }
 
 type manager struct {
-	thumbnails        map[string]string // this may be moved into thumbnailedAlbum
+	//thumbnails        map[string]string // this may be moved into thumbnailedAlbum
 	progress          map[string]*sync.Cond
 	thumbnailedAlbums map[thumbnailedAlbumKey]*thumbnailedAlbum
 	mutex             sync.Mutex
 }
 
 var gManager manager
+
+func getAlbumIDHash(albumID string) string {
+	albumIDHashArr := md5.Sum([]byte(albumID))
+	return hex.EncodeToString(albumIDHashArr[:])
+}
 
 func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
 	// prepare path elements outside of mutex scope.
@@ -53,16 +59,18 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 
 	albumInfo, ok := m.thumbnailedAlbums[albumKey]
 	if ok {
-		albumInfo.isDirty = true
 		albumInfo.lastAccessTimestamp = currTime
 	} else {
-		albumIDHashArr := md5.Sum([]byte(albumID))
-		albumIDHash := hex.EncodeToString(albumIDHashArr[:])
+		databaseID, err := globaldb.InsertThumbnailedAlbum(libraryID, albumID, currTime)
+		if err != nil {
+			// TODO : handle the error properly.
+		}
 
 		albumInfo = &thumbnailedAlbum{
-			isDirty:             true,
-			albumIDHash:         albumIDHash,
+			thumbnailedAlbumID:  databaseID,
+			albumIDHash:         getAlbumIDHash(albumID),
 			lastAccessTimestamp: currTime,
+			thumbnails:          make(map[string]string),
 		}
 		m.thumbnailedAlbums[albumKey] = albumInfo
 	}
@@ -76,25 +84,32 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 		}
 	}
 
-	thumbnailPath := filepath.Join(thumbnailDir, thumbnailName)
-
 	// thumbnail already exists. return it directly.
-	existThumbnailPath, ok := m.thumbnails[origImgPath]
+	existThumbnailPath, ok := albumInfo.thumbnails[origImgPath]
 	if ok {
 		return existThumbnailPath
 	}
 
+	// check if the image is already being processed.
 	var cond *sync.Cond
 	if cond, ok = m.progress[origImgPath]; !ok {
 		cond = sync.NewCond(&m.mutex)
 		m.progress[origImgPath] = cond
 
-		go m.buildThumbnail(origImgPath, thumbnailPath, cond)
+		thumbnailPath := filepath.Join(thumbnailDir, thumbnailName)
+		go m.buildThumbnail(albumKey, albumInfo.thumbnailedAlbumID, origImgPath, thumbnailPath, cond)
 	}
 
+	// wait for the thumbnail to be made.
 	cond.Wait()
 
-	thumbnailPath, ok = m.thumbnails[origImgPath]
+	// at this point, there's no guarantee that album info and thumbnail info exist.
+	albumInfo, ok = m.thumbnailedAlbums[albumKey]
+	if !ok {
+		return ""
+	}
+
+	thumbnailPath, ok := albumInfo.thumbnails[origImgPath]
 	if !ok {
 		return ""
 	}
@@ -102,7 +117,7 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 	return thumbnailPath
 }
 
-func (m *manager) buildThumbnail(imgPath, thumbnailPath string, signalCond *sync.Cond) {
+func (m *manager) buildThumbnail(thumbnailedAlbumKey thumbnailedAlbumKey, thumbnailedAlbumID int64, imgPath, thumbnailPath string, signalCond *sync.Cond) {
 	// get parameters for making thumbnail.
 	thumbnailDim := config.Get().Thumbnail.MaxDimension
 	thumbnailJpegQuality := config.Get().Thumbnail.JpegQuality
@@ -111,7 +126,7 @@ func (m *manager) buildThumbnail(imgPath, thumbnailPath string, signalCond *sync
 	err := image.MakeThumbnail(imgPath, thumbnailPath, thumbnailDim, thumbnailJpegQuality)
 
 	if err == nil {
-		globaldb.RegisterThumbnail(imgPath, thumbnailPath)
+		globaldb.RegisterThumbnail(imgPath, thumbnailPath, thumbnailedAlbumID)
 	}
 
 	m.mutex.Lock()
@@ -119,8 +134,13 @@ func (m *manager) buildThumbnail(imgPath, thumbnailPath string, signalCond *sync
 
 	delete(m.progress, imgPath)
 	if err == nil {
-		m.thumbnails[imgPath] = thumbnailPath
+		if albumInfo, ok := m.thumbnailedAlbums[thumbnailedAlbumKey]; ok {
+			albumInfo.thumbnails[imgPath] = thumbnailPath
+		} else {
+			// TODO : delete thumbnail file.
+		}
 	}
+
 	signalCond.Broadcast()
 }
 
@@ -135,19 +155,53 @@ func Initialize() error {
 	}
 
 	gManager = manager{
-		thumbnails:        make(map[string]string),
 		progress:          make(map[string]*sync.Cond),
 		thumbnailedAlbums: make(map[thumbnailedAlbumKey]*thumbnailedAlbum),
 		mutex:             sync.Mutex{},
 	}
 
+	// load thumbnailed albums from global DB.
+	thumbnailedAlbumRows, err := globaldb.LoadAllThumbnailedAlbums()
+	if err != nil {
+		return err
+	}
+
+	// temporary index for initial loading.
+	albumsByDBID := make(map[int64]*thumbnailedAlbum)
+
+	for _, row := range thumbnailedAlbumRows {
+		entry := &thumbnailedAlbum{
+			thumbnailedAlbumID:  row.ID,
+			albumIDHash:         getAlbumIDHash(row.AlbumID),
+			lastAccessTimestamp: time.Unix(row.LastAccessTimestamp, 0),
+			thumbnails:          make(map[string]string),
+		}
+
+		key := thumbnailedAlbumKey{
+			libraryID: row.LibraryID,
+			albumID:   row.AlbumID,
+		}
+
+		gManager.thumbnailedAlbums[key] = entry
+
+		// index the entry for further loading.
+		albumsByDBID[row.ID] = entry
+	}
+
+	// load thumbnails from global DB.
 	thumbnailRows, err := globaldb.LoadAllThumbnails()
 	if err != nil {
 		return err
 	}
 
 	for _, row := range thumbnailRows {
-		gManager.thumbnails[row.ImagePath] = row.ThumbnailPath
+		thumbnailedAlbum, ok := albumsByDBID[row.ThumbnailedAlbumID]
+		if !ok {
+			// TODO : remove the row and thumbnail file.
+			continue
+		}
+
+		thumbnailedAlbum.thumbnails[row.ImagePath] = row.ThumbnailPath
 	}
 
 	return nil
