@@ -1,13 +1,11 @@
 package handler
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path/filepath"
 
 	"github.com/labstack/echo"
-	"github.com/onorbit/pixelite/image"
 	"github.com/onorbit/pixelite/library"
 	"github.com/onorbit/pixelite/thumbnail"
 )
@@ -45,27 +43,19 @@ func listPath(c echo.Context) error {
 	}
 
 	// list content of album path.
-	albumPath := targetAlbum.GetPath()
-	content, err := ioutil.ReadDir(albumPath)
+	imageList, err := targetAlbum.ListImages()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
-	entryList := make([]DirectoryEntry, 0, len(content))
-	for _, entry := range content {
-		if entry.IsDir() {
-			newEntry := DirectoryEntry{
-				Name: entry.Name(),
-				Type: Directory,
-			}
-			entryList = append(entryList, newEntry)
-		} else if image.IsImageFile(entry.Name()) {
-			newEntry := DirectoryEntry{
-				Name: entry.Name(),
-				Type: ImageFile,
-			}
-			entryList = append(entryList, newEntry)
+	entryList := make([]DirectoryEntry, 0, len(imageList))
+	for _, fileName := range imageList {
+		newEntry := DirectoryEntry{
+			Name: fileName,
+			Type: ImageFile,
 		}
+
+		entryList = append(entryList, newEntry)
 	}
 
 	return c.JSON(http.StatusOK, entryList)

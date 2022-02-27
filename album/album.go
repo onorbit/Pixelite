@@ -2,8 +2,10 @@ package album
 
 import (
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/pkg/fileutils"
 )
 
 type Album struct {
@@ -40,9 +42,19 @@ func (a Album) ListImages() ([]string, error) {
 			continue
 		}
 
-		if image.IsImageFile(entry.Name()) {
-			imageList = append(imageList, entry.Name())
+		if !image.IsImageFile(entry.Name()) {
+			continue
 		}
+
+		filePath := filepath.Join(a.path, entry.Name())
+		if isHidden, err := fileutils.IsHidden(filePath); err != nil {
+			// TODO : log?
+			continue
+		} else if isHidden {
+			continue
+		}
+
+		imageList = append(imageList, entry.Name())
 	}
 
 	return imageList, nil
