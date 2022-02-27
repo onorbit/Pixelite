@@ -19,6 +19,8 @@ function populateLibrary(libDesc) {
 
     let wrapperDiv = document.getElementById('wrapper');
 
+    libDesc.albums.sort();
+
     for (let i = 0; i < libDesc.albums.length; i++) {
         let albumSubPath = libDesc.albums[i];
         let albumElem = makeAlbumElem(libraryId, albumSubPath);
