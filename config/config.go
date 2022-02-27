@@ -12,6 +12,7 @@ type ThumbnailCfg struct {
 }
 
 type Config struct {
+	ListenPort   int          `json:"listen_port"`
 	GlobalDBPath string       `json:"global_db_path"`
 	Thumbnail    ThumbnailCfg `json:"thumbnail"`
 }

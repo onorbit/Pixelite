@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/labstack/echo"
@@ -11,7 +12,7 @@ var gCancelFunc context.CancelFunc
 var gWaitGroup sync.WaitGroup
 var gEcho *echo.Echo
 
-func initRouter() error {
+func initRouter(listenPort int) error {
 	e := echo.New()
 
 	e.GET("/apis/list/:libid/:albumid", listPath)
@@ -31,14 +32,15 @@ func initRouter() error {
 	gEcho = e
 
 	gWaitGroup.Add(1)
-	go runFunc()
+	go runFunc(listenPort)
 
 	return nil
 }
 
-func runFunc() {
+func runFunc(listenPort int) {
 	// execution blocks here.
-	gEcho.Start(":10900")
+	addr := fmt.Sprintf(":%d", listenPort)
+	gEcho.Start(addr)
 
 	// following code is executed on shutdown.
 	gWaitGroup.Done()

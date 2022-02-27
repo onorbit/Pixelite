@@ -1,4 +1,5 @@
 {
+    "listen_port": 10900,
     "global_db_path": "C:\\Users\\username\\Documents\\pixelite\\globaldb.sqlite3",
     "thumbnail": {
         "store_path": "C:\\Users\\username\\Documents\\pixelite\\thumbnails",

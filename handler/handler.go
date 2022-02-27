@@ -137,8 +137,8 @@ func serveImage(c echo.Context) error {
 	return c.File(filePath)
 }
 
-func Initialize() error {
-	if err := initRouter(); err != nil {
+func Initialize(listenPort int) error {
+	if err := initRouter(listenPort); err != nil {
 		return err
 	}
 

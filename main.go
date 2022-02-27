@@ -17,11 +17,12 @@ import (
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
+	conf := config.Get()
 
 	if err := config.Initialize("pixelite.json"); err != nil {
 		panic(err)
 	}
-	if err := globaldb.Initialize(config.Get().GlobalDBPath); err != nil {
+	if err := globaldb.Initialize(conf.GlobalDBPath); err != nil {
 		panic(err)
 	}
 	if err := thumbnail.Initialize(); err != nil {
@@ -30,7 +31,7 @@ func main() {
 	if err := library.Initialize(); err != nil {
 		panic(err)
 	}
-	if err := handler.Initialize(); err != nil {
+	if err := handler.Initialize(conf.ListenPort); err != nil {
 		panic(err)
 	}
 
