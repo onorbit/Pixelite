@@ -3,6 +3,7 @@ package library
 import (
 	"io/ioutil"
 	"path/filepath"
+	"sync"
 
 	"github.com/onorbit/pixelite/album"
 	"github.com/onorbit/pixelite/image"
@@ -13,10 +14,11 @@ type Library struct {
 	desc     string
 	rootPath string
 	albums   map[string]album.Album
+	mutex    sync.Mutex
 }
 
-func newLibrary(id, rootPath, desc string) Library {
-	newLibrary := Library{
+func newLibrary(id, rootPath, desc string) *Library {
+	newLibrary := &Library{
 		id:       id,
 		desc:     desc,
 		rootPath: rootPath,
@@ -26,11 +28,8 @@ func newLibrary(id, rootPath, desc string) Library {
 	return newLibrary
 }
 
-func (l Library) scan() error {
-	if len(l.albums) != 0 {
-		l.albums = make(map[string]album.Album)
-	}
-
+func (l *Library) scan() error {
+	newAlbums := make(map[string]album.Album)
 	subPaths := make([]string, 0, 1)
 	subPaths = append(subPaths, l.rootPath)
 
@@ -55,13 +54,18 @@ func (l Library) scan() error {
 				if !isRegistered {
 					albumID, _ := filepath.Rel(l.rootPath, currPath)
 					albumID = filepath.ToSlash(albumID)
-					l.albums[albumID] = album.NewAlbum(albumID, currPath)
+					newAlbums[albumID] = album.NewAlbum(albumID, currPath)
 
 					isRegistered = true
 				}
 			}
 		}
 	}
+
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	l.albums = newAlbums
 
 	return nil
 }
@@ -70,7 +74,10 @@ func (l Library) scan() error {
 // public functions
 //-----------------------------------------------------------------------------
 
-func (l Library) Describe() LibraryDesc {
+func (l *Library) Describe() LibraryDesc {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	desc := LibraryDesc{
 		Id:     l.id,
 		Desc:   l.desc,
@@ -85,10 +92,14 @@ func (l Library) Describe() LibraryDesc {
 }
 
 // TODO : returning pointer here could be dangerous. need to fix.
-func (l Library) GetAlbum(albumID string) *album.Album {
+func (l *Library) GetAlbum(albumID string) *album.Album {
 	if ret, ok := l.albums[albumID]; ok {
 		return &ret
 	}
 
 	return nil
+}
+
+func (l *Library) Rescan() error {
+	return l.scan()
 }

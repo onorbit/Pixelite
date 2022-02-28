@@ -22,6 +22,7 @@ func initRouter(listenPort int) error {
 	e.POST("/apis/library", createLibrary)
 	e.GET("/apis/library/:id", getLibrary)
 	e.DELETE("/apis/library/:id", deleteLibrary)
+	e.POST("/apis/library/:id/rescan", rescanLibrary)
 	e.GET("/apis/libraries", listLibrary)
 
 	e.Static("/statics", "frontend/statics")

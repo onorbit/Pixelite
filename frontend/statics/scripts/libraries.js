@@ -1,15 +1,33 @@
-function makeLibraryElem(id, desc) {
-    let libUrl = sC.renderPath('/library/<str:id>', {id: id});
+function sendRescanRequest(id) {
+    let rescanUrl = sC.renderPath('apis/library/<str:id>/rescan', {id: id})
+    sC.ajaxPost(rescanUrl, null, function(status, response) {
+        // TODO : notification?
+    })
+}
 
-    let divElem = document.createElement("div");
-    divElem.innerText = desc;
+function makeLibraryElem(id, desc) {
+    let wrapperElem = document.createElement("div");
+
+    // make library link
+    let spanElem = document.createElement("span");
+    spanElem.innerText = desc
 
     let linkElem = document.createElement("a");
-    linkElem.href = libUrl;
+    linkElem.href = sC.renderPath('/library/<str:id>', {id: id});
+    linkElem.appendChild(spanElem);
 
-    linkElem.appendChild(divElem);
+    // append library link to wrapper
+    wrapperElem.appendChild(linkElem);
 
-    return linkElem;
+    // make rescan button
+    let rescanButtonElem = document.createElement("span");
+    rescanButtonElem.innerText = "rescan";
+    rescanButtonElem.addEventListener('click', function(){ sendRescanRequest(id); });
+
+    // append rescan button to wrapper
+    wrapperElem.appendChild(rescanButtonElem);
+
+    return wrapperElem;
 }
 
 function populateLibraries(libList) {

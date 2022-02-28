@@ -47,7 +47,7 @@ func (m *manager) createLibrary(rootPath string) error {
 
 	m.mutex.Lock()
 	delete(m.progress, rootPath)
-	m.addLibrary(&newLibrary)
+	m.addLibrary(newLibrary)
 	m.mutex.Unlock()
 
 	// TODO : what to do if some error happens in here?
@@ -113,7 +113,7 @@ func Initialize() error {
 			return err
 		}
 
-		gManager.addLibrary(&library)
+		gManager.addLibrary(library)
 	}
 
 	return nil

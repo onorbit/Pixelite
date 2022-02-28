@@ -41,6 +41,20 @@ func deleteLibrary(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+func rescanLibrary(c echo.Context) error {
+	id := c.Param("id")
+	library := library.GetLibrary(id)
+	if library == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	if err := library.Rescan(); err != nil {
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
 func listLibrary(c echo.Context) error {
 	list := library.ListLibrary()
 	return c.JSON(http.StatusOK, list)
