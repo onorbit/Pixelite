@@ -44,6 +44,7 @@ func (l Library) scan() error {
 			return err
 		}
 
+		isRegistered := false
 		for _, entry := range content {
 			if entry.IsDir() == true {
 				// found a directory. push to subpath list for further traverse.
@@ -51,10 +52,13 @@ func (l Library) scan() error {
 				subPaths = append(subPaths, path)
 			} else if image.IsImageFile(entry.Name()) == true {
 				// found an image. register this path as an Album.
-				albumID, _ := filepath.Rel(l.rootPath, currPath)
-				albumID = filepath.ToSlash(albumID)
-				l.albums[albumID] = album.NewAlbum(albumID, currPath)
-				break
+				if !isRegistered {
+					albumID, _ := filepath.Rel(l.rootPath, currPath)
+					albumID = filepath.ToSlash(albumID)
+					l.albums[albumID] = album.NewAlbum(albumID, currPath)
+
+					isRegistered = true
+				}
 			}
 		}
 	}
