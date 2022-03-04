@@ -76,7 +76,8 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 	}
 
 	// prepare thumbnail file path.
-	thumbnailDir := filepath.Join(thumbnailLibDir, albumInfo.albumIDHash)
+	albumIDHash := albumInfo.albumIDHash
+	thumbnailDir := filepath.Join(thumbnailLibDir, albumIDHash[0:2], albumIDHash[2:4], albumIDHash)
 	if !ok {
 		if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
 			// TODO : handle the error properly.
