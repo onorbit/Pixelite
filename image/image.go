@@ -10,7 +10,7 @@ import (
 
 	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
-	"golang.org/x/image/webp"
+	"github.com/chai2010/webp"
 )
 
 var imageExt = []string{
