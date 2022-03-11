@@ -1,6 +1,8 @@
 package image
 
 import (
+	"errors"
+	"image"
 	"io"
 	"os"
 	"path/filepath"
@@ -8,11 +10,41 @@ import (
 
 	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
+	"golang.org/x/image/webp"
 )
 
 var imageExt = []string{
 	".jpg",
 	".png",
+	".webp",
+}
+
+var ErrFormatNotSupported = errors.New("not supported file format")
+
+func openImage(srcPath string) (img image.Image, err error) {
+	fileExt := strings.ToLower(filepath.Ext(srcPath))
+	switch fileExt {
+	case ".jpg":
+		img, err = imgio.Open(srcPath)
+		return
+	case ".png":
+		img, err = imgio.Open(srcPath)
+		return
+	case ".webp":
+		file, oerr := os.Open(srcPath)
+		if oerr != nil {
+			err = oerr
+			return
+		}
+
+		defer file.Close()
+
+		img, err = webp.Decode(file)
+		return
+	default:
+		err = ErrFormatNotSupported
+		return
+	}
 }
 
 func IsImageFile(fileName string) bool {
@@ -28,7 +60,7 @@ func IsImageFile(fileName string) bool {
 }
 
 func MakeThumbnail(srcPath, dstPath string, thumbnailSize, jpegQuality int) error {
-	image, err := imgio.Open(srcPath)
+	image, err := openImage(srcPath)
 	if err != nil {
 		return err
 	}
