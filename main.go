@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 	"github.com/onorbit/pixelite/database/globaldb"
 	"github.com/onorbit/pixelite/handler"
 	"github.com/onorbit/pixelite/library"
+	"github.com/onorbit/pixelite/pkg/log"
 	"github.com/onorbit/pixelite/thumbnail"
 )
 
@@ -38,8 +38,9 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
+	log.Info("Pixelite is up and running.")
 	<-sigs
-	fmt.Printf("shutting down.\n")
+	log.Info("Pixelite is shutting down.")
 
 	handler.Cleanup()
 }

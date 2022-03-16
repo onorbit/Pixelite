@@ -14,6 +14,7 @@ var gEcho *echo.Echo
 
 func initRouter(listenPort int) error {
 	e := echo.New()
+	e.HideBanner = true
 
 	// general APIs.
 	e.GET("/apis/list/:libid/:albumid", handleListPath)
