@@ -13,12 +13,14 @@ import (
 	"github.com/onorbit/pixelite/config"
 	"github.com/onorbit/pixelite/database/globaldb"
 	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/pkg/log"
 )
 
 type thumbnailedAlbum struct {
 	thumbnailedAlbumID  int64
 	albumIDHash         string
 	lastAccessTimestamp time.Time
+	needDBSync          bool
 	thumbnails          map[string]string
 }
 
@@ -28,7 +30,6 @@ type thumbnailedAlbumKey struct {
 }
 
 type manager struct {
-	//thumbnails        map[string]string // this may be moved into thumbnailedAlbum
 	progress          map[string]*sync.Cond
 	thumbnailedAlbums map[thumbnailedAlbumKey]*thumbnailedAlbum
 	mutex             sync.Mutex
@@ -60,8 +61,9 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 	albumInfo, ok := m.thumbnailedAlbums[albumKey]
 	if ok {
 		albumInfo.lastAccessTimestamp = currTime
+		albumInfo.needDBSync = true
 	} else {
-		databaseID, err := globaldb.InsertThumbnailedAlbum(libraryID, albumID, currTime)
+		databaseID, err := globaldb.InsertThumbnailedAlbum(libraryID, albumID, currTime, currTime)
 		if err != nil {
 			// TODO : handle the error properly.
 		}
@@ -70,9 +72,12 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 			thumbnailedAlbumID:  databaseID,
 			albumIDHash:         getAlbumIDHash(albumID),
 			lastAccessTimestamp: currTime,
+			needDBSync:          false,
 			thumbnails:          make(map[string]string),
 		}
+
 		m.thumbnailedAlbums[albumKey] = albumInfo
+		log.Info("album [%s] - [%s] in library [%s] is registered as thumbnailed", albumID, albumInfo.albumIDHash, libraryID)
 	}
 
 	// prepare thumbnail file path.
@@ -125,24 +130,44 @@ func (m *manager) buildThumbnail(thumbnailedAlbumKey thumbnailedAlbumKey, thumbn
 
 	// make actual thumbnail.
 	err := image.MakeThumbnail(imgPath, thumbnailPath, thumbnailDim, thumbnailJpegQuality)
-
-	if err == nil {
-		globaldb.RegisterThumbnail(imgPath, thumbnailPath, thumbnailedAlbumID)
+	if err != nil {
+		// TODO : log?
+		return
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	isRegistered := true
 
+	m.mutex.Lock()
 	delete(m.progress, imgPath)
-	if err == nil {
-		if albumInfo, ok := m.thumbnailedAlbums[thumbnailedAlbumKey]; ok {
-			albumInfo.thumbnails[imgPath] = thumbnailPath
-		} else {
-			// TODO : delete thumbnail file.
-		}
+	if albumInfo, ok := m.thumbnailedAlbums[thumbnailedAlbumKey]; ok {
+		albumInfo.thumbnails[imgPath] = thumbnailPath
+	} else {
+		// could happen. i.e. thumbnails for the album is purged due to lifetime policy.
+		isRegistered = false
+	}
+	m.mutex.Unlock()
+
+	if isRegistered {
+		globaldb.InsertThumbnail(imgPath, thumbnailPath, thumbnailedAlbumID)
+	} else {
+		// TODO : is generated thumbnail file still exists?
 	}
 
 	signalCond.Broadcast()
+}
+
+func (m *manager) syncLastAccessTimeToDB() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for _, entry := range m.thumbnailedAlbums {
+		if !entry.needDBSync {
+			continue
+		}
+
+		globaldb.UpdateThumbnailedAlbumAccessTimestamp(entry.thumbnailedAlbumID, entry.lastAccessTimestamp)
+		entry.needDBSync = false
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -206,6 +231,10 @@ func Initialize() error {
 	}
 
 	return nil
+}
+
+func Cleanup() {
+	gManager.syncLastAccessTimeToDB()
 }
 
 func GetThumbnailPath(fileName, albumPath, albumID, libraryID string) string {

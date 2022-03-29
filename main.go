@@ -43,4 +43,5 @@ func main() {
 	log.Info("Pixelite is shutting down.")
 
 	handler.Cleanup()
+	thumbnail.Cleanup()
 }
