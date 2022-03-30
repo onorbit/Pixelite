@@ -1,6 +1,7 @@
 package thumbnail
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"os"
@@ -16,11 +17,12 @@ import (
 	"github.com/onorbit/pixelite/pkg/log"
 )
 
+const tickIntervalMinutes = 5
+
 type thumbnailedAlbum struct {
 	thumbnailedAlbumID  int64
 	albumIDHash         string
 	lastAccessTimestamp time.Time
-	needDBSync          bool
 	thumbnails          map[string]string
 }
 
@@ -30,9 +32,12 @@ type thumbnailedAlbumKey struct {
 }
 
 type manager struct {
-	progress          map[string]*sync.Cond
-	thumbnailedAlbums map[thumbnailedAlbumKey]*thumbnailedAlbum
-	mutex             sync.Mutex
+	progress           map[string]*sync.Cond
+	thumbnailedAlbums  map[thumbnailedAlbumKey]*thumbnailedAlbum
+	recentAccessAlbums map[thumbnailedAlbumKey]struct{}
+	cancelTickerFunc   context.CancelFunc
+	tickerWaitGroup    sync.WaitGroup
+	mutex              sync.Mutex
 }
 
 var gManager manager
@@ -61,7 +66,7 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 	albumInfo, ok := m.thumbnailedAlbums[albumKey]
 	if ok {
 		albumInfo.lastAccessTimestamp = currTime
-		albumInfo.needDBSync = true
+		m.recentAccessAlbums[albumKey] = struct{}{}
 	} else {
 		databaseID, err := globaldb.InsertThumbnailedAlbum(libraryID, albumID, currTime, currTime)
 		if err != nil {
@@ -72,7 +77,6 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 			thumbnailedAlbumID:  databaseID,
 			albumIDHash:         getAlbumIDHash(albumID),
 			lastAccessTimestamp: currTime,
-			needDBSync:          false,
 			thumbnails:          make(map[string]string),
 		}
 
@@ -156,17 +160,48 @@ func (m *manager) buildThumbnail(thumbnailedAlbumKey thumbnailedAlbumKey, thumbn
 	signalCond.Broadcast()
 }
 
+func (m *manager) startTick() {
+	tickFunc := func(ctx context.Context, wg *sync.WaitGroup) {
+		ticker := time.NewTicker(tickIntervalMinutes * time.Minute)
+
+		for {
+			select {
+			case <-ctx.Done():
+				wg.Done()
+				gManager.syncLastAccessTimeToDB()
+				return
+			case <-ticker.C:
+				gManager.syncLastAccessTimeToDB()
+				// TODO : delete thumbnails.
+			}
+		}
+	}
+
+	m.tickerWaitGroup.Add(1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go tickFunc(ctx, &m.tickerWaitGroup)
+	m.cancelTickerFunc = cancel
+
+	log.Info("thumbnail manager starts ticking")
+}
+
+func (m *manager) stopTick() {
+	m.cancelTickerFunc()
+	m.tickerWaitGroup.Wait()
+
+	log.Info("thumbnail manager stopped ticking")
+}
+
 func (m *manager) syncLastAccessTimeToDB() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	for _, entry := range m.thumbnailedAlbums {
-		if !entry.needDBSync {
-			continue
-		}
+	for key, _ := range m.recentAccessAlbums {
+		albumInfo := m.thumbnailedAlbums[key]
+		globaldb.UpdateThumbnailedAlbumAccessTimestamp(albumInfo.thumbnailedAlbumID, albumInfo.lastAccessTimestamp)
 
-		globaldb.UpdateThumbnailedAlbumAccessTimestamp(entry.thumbnailedAlbumID, entry.lastAccessTimestamp)
-		entry.needDBSync = false
+		delete(m.recentAccessAlbums, key)
 	}
 }
 
@@ -181,9 +216,10 @@ func Initialize() error {
 	}
 
 	gManager = manager{
-		progress:          make(map[string]*sync.Cond),
-		thumbnailedAlbums: make(map[thumbnailedAlbumKey]*thumbnailedAlbum),
-		mutex:             sync.Mutex{},
+		progress:           make(map[string]*sync.Cond),
+		thumbnailedAlbums:  make(map[thumbnailedAlbumKey]*thumbnailedAlbum),
+		recentAccessAlbums: make(map[thumbnailedAlbumKey]struct{}),
+		mutex:              sync.Mutex{},
 	}
 
 	// load thumbnailed albums from global DB.
@@ -230,11 +266,13 @@ func Initialize() error {
 		thumbnailedAlbum.thumbnails[row.ImagePath] = row.ThumbnailPath
 	}
 
+	gManager.startTick()
+
 	return nil
 }
 
 func Cleanup() {
-	gManager.syncLastAccessTimeToDB()
+	gManager.stopTick()
 }
 
 func GetThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
