@@ -11,11 +11,11 @@ type ThumbnailRow struct {
 }
 
 type ThumbnailedAlbumRow struct {
-	ID                   int64  `db:"id"`
-	LibraryID            string `db:"library_id"`
-	AlbumID              string `db:"album_id"`
-	FirstAccessTimestamp int64  `db:"first_access_timestamp"`
-	LastAccessTimestamp  int64  `db:"last_access_timestamp"`
+	ID                  int64  `db:"id"`
+	LibraryID           string `db:"library_id"`
+	AlbumID             string `db:"album_id"`
+	CreateTimestamp     int64  `db:"create_timestamp"`
+	LastAccessTimestamp int64  `db:"last_access_timestamp"`
 }
 
 func initThumbnails() error {
@@ -41,7 +41,7 @@ func initThumbnails() error {
 			id INTEGER PRIMARY KEY,
 			library_id TEXT,
 			album_id TEXT,
-			first_access_timestamp INTEGER,
+			create_timestamp INTEGER,
 			last_access_timestamp INTEGER
 		)`
 
@@ -57,8 +57,9 @@ func InsertThumbnail(imagePath, thumbnailPath string, thumbnailedAlbumID int64) 
 	return err
 }
 
-func InsertThumbnailedAlbum(libraryID, albumID string, firstAccessTimestamp, lastAccessTimestamp time.Time) (int64, error) {
-	result, err := gDatabase.Exec("INSERT INTO thumbnailed_albums (library_id, album_id, first_access_timestamp, last_access_timestamp) VALUES (?, ?, ?, ?)", libraryID, albumID, firstAccessTimestamp.Unix(), lastAccessTimestamp.Unix())
+func InsertThumbnailedAlbum(libraryID, albumID string) (int64, error) {
+	currTime := time.Now()
+	result, err := gDatabase.Exec("INSERT INTO thumbnailed_albums (library_id, album_id, create_timestamp, last_access_timestamp) VALUES (?, ?, ?, ?)", libraryID, albumID, currTime.Unix(), currTime.Unix())
 	if err != nil {
 		return 0, err
 	}
@@ -111,7 +112,7 @@ func LoadAllThumbnails() ([]ThumbnailRow, error) {
 
 func LoadAllThumbnailedAlbums() ([]ThumbnailedAlbumRow, error) {
 	ret := []ThumbnailedAlbumRow{}
-	if err := gDatabase.Select(&ret, "SELECT id, library_id, album_id, first_access_timestamp, last_access_timestamp FROM thumbnailed_albums"); err != nil {
+	if err := gDatabase.Select(&ret, "SELECT id, library_id, album_id, create_timestamp, last_access_timestamp FROM thumbnailed_albums"); err != nil {
 		return nil, err
 	}
 

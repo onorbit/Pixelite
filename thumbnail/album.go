@@ -2,6 +2,8 @@ package thumbnail
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -19,17 +21,32 @@ var ErrThumbnailNotAvailable = errors.New("thumbnail is not available")
 type thumbnailedAlbum struct {
 	thumbnailedAlbumID  int64
 	albumIDHash         string
+	createTimestamp     time.Time
 	lastAccessTimestamp time.Time
+	thumbnailDir        string
 	thumbnails          map[string]string
 	progress            map[string]*sync.Cond
 	mutex               sync.Mutex
 }
 
-func newThumbnailedAlbum(databaseID int64, albumID string, lastAccessTimestamp time.Time) *thumbnailedAlbum {
+func newThumbnailedAlbum(databaseID int64, albumID string, createTimestamp, lastAccessTimestamp time.Time, thumbnailLibDir string, makeDir bool) *thumbnailedAlbum {
+	albumIDHash := getAlbumIDHash(albumID)
+	leafThumbnailDir := fmt.Sprintf("%s_%x", albumIDHash, createTimestamp.Unix())
+	thumbnailDir := filepath.Join(thumbnailLibDir, albumIDHash[0:2], albumIDHash[2:4], leafThumbnailDir)
+
+	if makeDir {
+		if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
+			log.Error("failed to make thumbnail path [%s] - [%v]", thumbnailDir, err.Error())
+			return nil
+		}
+	}
+
 	albumInfo := &thumbnailedAlbum{
 		thumbnailedAlbumID:  databaseID,
-		albumIDHash:         getAlbumIDHash(albumID),
+		albumIDHash:         albumIDHash,
+		createTimestamp:     createTimestamp,
 		lastAccessTimestamp: lastAccessTimestamp,
+		thumbnailDir:        thumbnailDir,
 		thumbnails:          make(map[string]string),
 		progress:            make(map[string]*sync.Cond),
 	}
@@ -50,17 +67,13 @@ func (a *thumbnailedAlbum) getThumbnailPath(thumbnailLibPath, albumPath, fileNam
 		return thumbnailPath, nil
 	}
 
-	// prepare thumbnail path for the album.
-	albumIDHash := a.albumIDHash
-	thumbnailDir := filepath.Join(thumbnailLibPath, albumIDHash[0:2], albumIDHash[2:4], albumIDHash)
-
 	// check if the image is already being processed.
 	var cond *sync.Cond
 	if cond, ok = a.progress[origImgPath]; !ok {
 		cond = sync.NewCond(&a.mutex)
 		a.progress[origImgPath] = cond
 
-		destPath := filepath.Join(thumbnailDir, thumbnailName)
+		destPath := filepath.Join(a.thumbnailDir, thumbnailName)
 		go a.buildThumbnail(origImgPath, destPath, cond)
 	}
 
@@ -97,4 +110,21 @@ func (a *thumbnailedAlbum) buildThumbnail(origImgPath, thumbnailPath string, con
 	globaldb.InsertThumbnail(origImgPath, thumbnailPath, a.thumbnailedAlbumID)
 
 	cond.Broadcast()
+}
+
+func (a *thumbnailedAlbum) cleanUp() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	// delete thumbnail files.
+	for _, thumbnailPath := range a.thumbnails {
+		if err := os.Remove(thumbnailPath); err != nil {
+			log.Error("failed to remove thumbnail file [%s] - [%v]", thumbnailPath, err.Error())
+		}
+	}
+
+	// delete thumbnail directory.
+	if err := os.Remove(a.thumbnailDir); err != nil {
+		log.Error("failed to remove thumbnail directory [%s] - [%v]", a.thumbnailDir, err.Error())
+	}
 }

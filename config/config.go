@@ -6,9 +6,10 @@ import (
 )
 
 type ThumbnailCfg struct {
-	StorePath    string `json:"store_path"`
-	JpegQuality  int    `json:"jpeg_quality"`
-	MaxDimension int    `json:"max_dimension_px"`
+	StorePath          string `json:"store_path"`
+	JpegQuality        int    `json:"jpeg_quality"`
+	MaxDimension       int    `json:"max_dimension_px"`
+	LifetimeUnusedDays int    `json:"lifetime_unused_days"`
 }
 
 type Config struct {

@@ -54,27 +54,22 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 		m.recentAccessAlbums[albumKey] = struct{}{}
 	} else {
 		// insert to global db.
-		databaseID, err := globaldb.InsertThumbnailedAlbum(libraryID, albumID, currTime, currTime)
+		databaseID, err := globaldb.InsertThumbnailedAlbum(libraryID, albumID)
 		if err != nil {
 			log.Error("failed to insert thumbnailed album - libraryID [%s], albumID [%s] - %v", libraryID, albumID, err.Error())
 			m.mutex.Unlock()
 			return ""
 		}
 
-		albumInfo = newThumbnailedAlbum(databaseID, albumID, currTime)
-
-		// prepare thumbnail file path.
-		albumIDHash := albumInfo.albumIDHash
-		thumbnailDir := filepath.Join(thumbnailLibDir, albumIDHash[0:2], albumIDHash[2:4], albumIDHash)
-		if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
-			log.Error("failed to make thumbnail path [%s] - [%v]", thumbnailDir, err.Error())
-			m.mutex.Unlock()
+		albumInfo = newThumbnailedAlbum(databaseID, albumID, currTime, currTime, thumbnailLibDir, true)
+		if albumInfo == nil {
+			// failed to create thumbnail directory.
 			return ""
 		}
 
 		// register the structure.
 		m.thumbnailedAlbums[albumKey] = albumInfo
-		log.Info("album [%s] - [%s] in library [%s] is registered as thumbnailed", albumID, albumInfo.albumIDHash, libraryID)
+		log.Info("album [%s] - [%s] in library [%s] is registered to thumbnail manager", albumID, albumInfo.albumIDHash, libraryID)
 	}
 
 	m.mutex.Unlock()
@@ -101,7 +96,7 @@ func (m *manager) startTick() {
 				return
 			case <-ticker.C:
 				gManager.syncLastAccessTimeToDB()
-				// TODO : delete thumbnails.
+				gManager.deleteUnusedThumbnails()
 			}
 		}
 	}
@@ -134,6 +129,32 @@ func (m *manager) syncLastAccessTimeToDB() {
 	}
 }
 
+func (m *manager) deleteUnusedThumbnails() {
+	thresholdTime := time.Now().Add(time.Hour * 24 * time.Duration(config.Get().Thumbnail.LifetimeUnusedDays))
+	toDelete := make([]*thumbnailedAlbum, 0)
+
+	// select thumbnailedAlbum to delete with lock acquisition.
+	m.mutex.Lock()
+	for key, albumInfo := range m.thumbnailedAlbums {
+		if albumInfo.lastAccessTimestamp.Before(thresholdTime) {
+			toDelete = append(toDelete, albumInfo)
+
+			// TODO : try deleting the DB entries outside of lock scope.
+			globaldb.DeleteThumbnailedAlbum(albumInfo.thumbnailedAlbumID)
+			delete(m.thumbnailedAlbums, key)
+			delete(m.recentAccessAlbums, key)
+
+			log.Info("album [%s] in library [%s] is unregistered from thumbnail manager", key.albumID, key.libraryID)
+		}
+	}
+	m.mutex.Unlock()
+
+	// delete thumbnail files and directory.
+	for _, albumInfo := range toDelete {
+		albumInfo.cleanUp()
+	}
+}
+
 //-----------------------------------------------------------------------------
 // public functions
 //-----------------------------------------------------------------------------
@@ -161,7 +182,11 @@ func Initialize() error {
 	albumsByDBID := make(map[int64]*thumbnailedAlbum)
 
 	for _, row := range thumbnailedAlbumRows {
-		entry := newThumbnailedAlbum(row.ID, getAlbumIDHash(row.AlbumID), time.Unix(row.LastAccessTimestamp, 0))
+		thumbnailLibDir := filepath.Join(config.Get().Thumbnail.StorePath, row.LibraryID)
+		createTimestamp := time.Unix(row.CreateTimestamp, 0)
+		lastAccessTimestamp := time.Unix(row.LastAccessTimestamp, 0)
+
+		entry := newThumbnailedAlbum(row.ID, row.AlbumID, createTimestamp, lastAccessTimestamp, thumbnailLibDir, false)
 		key := thumbnailedAlbumKey{
 			libraryID: row.LibraryID,
 			albumID:   row.AlbumID,
