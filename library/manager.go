@@ -2,14 +2,15 @@ package library
 
 import (
 	"errors"
-	"fmt"
-	"math/rand"
+	"path"
 	"sync"
 
 	"github.com/onorbit/pixelite/database/globaldb"
+	"github.com/onorbit/pixelite/database/librarydb"
+	"github.com/onorbit/pixelite/pkg/log"
 )
 
-var ErrLibraryAlreadyRegistered = errors.New("Library with given root path is already registered")
+var ErrLibraryAlreadyMounted = errors.New("Library with given root path is already mounted")
 var ErrLibraryScanInProgress = errors.New("Library with given root path is being scanned")
 var ErrLibraryNotFound = errors.New("Library with given ID is not found")
 
@@ -22,23 +23,32 @@ type manager struct {
 
 var gManager manager
 
-func (m *manager) createLibrary(rootPath string) error {
+func (m *manager) mountLibrary(rootPath string) error {
 	m.mutex.Lock()
 
+	// check if the path is already mounted.
 	if _, ok := m.rootPaths[rootPath]; ok == true {
 		m.mutex.Unlock()
-		return ErrLibraryAlreadyRegistered
+		return ErrLibraryAlreadyMounted
 	}
 
+	// or being mounted and scanned.
 	if _, ok := m.progress[rootPath]; ok == true {
 		m.mutex.Unlock()
 		return ErrLibraryScanInProgress
 	}
 
+	// load or initialize libraryDB.
+	libDBPath := path.Join(rootPath, "library.sqlite3")
+	id, err := librarydb.LoadLibraryDB(libDBPath)
+	if err != nil {
+		m.mutex.Unlock()
+		return err
+	}
+
 	m.progress[rootPath] = struct{}{}
 	m.mutex.Unlock()
 
-	id := fmt.Sprintf("%08x", rand.Uint32())
 	// TODO : receive desc from user
 	newLibrary := newLibrary(id, rootPath, id)
 	if err := newLibrary.scan(); err != nil {
@@ -51,8 +61,13 @@ func (m *manager) createLibrary(rootPath string) error {
 	m.mutex.Unlock()
 
 	// TODO : what to do if some error happens in here?
-	err := globaldb.InsertLibrary(id, rootPath, id)
-	return err
+	err = globaldb.InsertLibrary(id, rootPath, id)
+	if err != nil {
+		return err
+	}
+
+	log.Info("library [%s] with root path [%s] is successfully mounted", id, rootPath)
+	return nil
 }
 
 func (m *manager) addLibrary(library *Library) {
@@ -71,7 +86,7 @@ func (m *manager) getLibrary(id string) *Library {
 	return m.libraries[id]
 }
 
-func (m *manager) deleteLibrary(id string) error {
+func (m *manager) unmountLibrary(id string) error {
 	m.mutex.Lock()
 
 	if _, ok := m.libraries[id]; ok == true {
@@ -80,6 +95,8 @@ func (m *manager) deleteLibrary(id string) error {
 		m.mutex.Unlock()
 		return ErrLibraryNotFound
 	}
+
+	librarydb.UnloadLibraryDB(id)
 
 	m.mutex.Unlock()
 
@@ -119,16 +136,16 @@ func Initialize() error {
 	return nil
 }
 
-func CreateLibrary(rootPath string) error {
-	return gManager.createLibrary(rootPath)
+func MountLibrary(rootPath string) error {
+	return gManager.mountLibrary(rootPath)
 }
 
 func GetLibrary(id string) *Library {
 	return gManager.getLibrary(id)
 }
 
-func DeleteLibrary(id string) error {
-	return gManager.deleteLibrary(id)
+func UnmountLibrary(id string) error {
+	return gManager.unmountLibrary(id)
 }
 
 func ListLibrary() []LibrarySummeryDesc {

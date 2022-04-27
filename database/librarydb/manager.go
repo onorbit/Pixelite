@@ -17,16 +17,25 @@ type manager struct {
 
 var gManager *manager
 
-func (m *manager) LoadLibraryDB(libraryID, dbFilePath string) error {
+func (m *manager) LoadLibraryDB(dbFilePath string) (string, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if _, ok := m.libraryDBs[libraryID]; ok {
-		return ErrAlreadyLoaded
+	for _, libDB := range m.libraryDBs {
+		if libDB.GetDBFilePath() == dbFilePath {
+			return "", ErrAlreadyLoaded
+		}
 	}
 
-	// TODO : implement this.
-	return nil
+	libDB, err := newLibraryDB(dbFilePath)
+	if err != nil {
+		return "", err
+	}
+
+	libraryID := libDB.GetLibraryID()
+	m.libraryDBs[libraryID] = libDB
+
+	return libraryID, nil
 }
 
 func (m *manager) UnloadLibraryDB(libraryID string) error {
@@ -62,8 +71,8 @@ func Initialize() error {
 	return nil
 }
 
-func LoadLibraryDB(libraryID, dbFilePath string) error {
-	return gManager.LoadLibraryDB(libraryID, dbFilePath)
+func LoadLibraryDB(dbFilePath string) (string, error) {
+	return gManager.LoadLibraryDB(dbFilePath)
 }
 
 func UnloadLibraryDB(libraryID string) error {

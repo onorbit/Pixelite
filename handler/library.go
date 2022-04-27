@@ -13,7 +13,7 @@ func createLibrary(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	if err := library.CreateLibrary(rootPath); err != nil {
+	if err := library.MountLibrary(rootPath); err != nil {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
@@ -34,7 +34,7 @@ func getLibrary(c echo.Context) error {
 
 func deleteLibrary(c echo.Context) error {
 	id := c.Param("id")
-	if err := library.DeleteLibrary(id); err != nil {
+	if err := library.UnmountLibrary(id); err != nil {
 		return c.NoContent(http.StatusNotFound)
 	}
 

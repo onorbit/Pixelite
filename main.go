@@ -9,6 +9,7 @@ import (
 
 	"github.com/onorbit/pixelite/config"
 	"github.com/onorbit/pixelite/database/globaldb"
+	"github.com/onorbit/pixelite/database/librarydb"
 	"github.com/onorbit/pixelite/handler"
 	"github.com/onorbit/pixelite/library"
 	"github.com/onorbit/pixelite/pkg/log"
@@ -26,6 +27,9 @@ func main() {
 		panic(err)
 	}
 	if err := thumbnail.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := librarydb.Initialize(); err != nil {
 		panic(err)
 	}
 	if err := library.Initialize(); err != nil {
