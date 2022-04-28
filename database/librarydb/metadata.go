@@ -11,7 +11,7 @@ type MetadataRow struct {
 }
 
 const MetadataKeyLibraryID = "id"
-const MetadataKeyLibraryTitle = "title"
+const MetadataKeyLibraryDesc = "desc"
 
 var ErrMetadataNotFound = errors.New("metadata with designated key not found")
 

@@ -6,23 +6,21 @@ var gStmtInsertLibrary *sql.Stmt
 var gStmtDeleteLibrary *sql.Stmt
 
 type LibraryRow struct {
-	ID       string `db:"id"`
 	RootPath string `db:"root_path"`
-	Desc     string `db:"desc"`
 }
 
 func initLibraries() error {
-	if _, err := gDatabase.Exec("CREATE TABLE IF NOT EXISTS libraries(id TEXT PRIMARY KEY, root_path TEXT, desc TEXT)"); err != nil {
+	if _, err := gDatabase.Exec("CREATE TABLE IF NOT EXISTS libraries(root_path TEXT PRIMARY KEY)"); err != nil {
 		return err
 	}
 
-	stmt, err := gDatabase.Prepare("INSERT INTO libraries(id, root_path, desc) VALUES (?, ?, ?)")
+	stmt, err := gDatabase.Prepare("INSERT INTO libraries(root_path) VALUES (?)")
 	if err != nil {
 		return err
 	}
 	gStmtInsertLibrary = stmt
 
-	stmt, err = gDatabase.Prepare("DELETE FROM libraries WHERE id = ?")
+	stmt, err = gDatabase.Prepare("DELETE FROM libraries WHERE root_path = ?")
 	if err != nil {
 		return err
 	}
@@ -31,19 +29,19 @@ func initLibraries() error {
 	return nil
 }
 
-func InsertLibrary(id, rootPath, desc string) error {
-	_, err := gStmtInsertLibrary.Exec(id, rootPath, desc)
+func InsertLibrary(rootPath string) error {
+	_, err := gStmtInsertLibrary.Exec(rootPath)
 	return err
 }
 
-func DeleteLibrary(id string) error {
-	_, err := gStmtDeleteLibrary.Exec(id)
+func DeleteLibrary(rootPath string) error {
+	_, err := gStmtDeleteLibrary.Exec(rootPath)
 	return err
 }
 
 func LoadAllLibraries() ([]LibraryRow, error) {
 	ret := []LibraryRow{}
-	if err := gDatabase.Select(&ret, "SELECT id, root_path, desc FROM libraries"); err != nil {
+	if err := gDatabase.Select(&ret, "SELECT root_path FROM libraries"); err != nil {
 		return nil, err
 	}
 

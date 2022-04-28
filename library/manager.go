@@ -23,7 +23,7 @@ type manager struct {
 
 var gManager manager
 
-func (m *manager) mountLibrary(rootPath string) error {
+func (m *manager) mountLibrary(rootPath string, needGlobalDBInsert bool) error {
 	m.mutex.Lock()
 
 	// check if the path is already mounted.
@@ -40,39 +40,43 @@ func (m *manager) mountLibrary(rootPath string) error {
 
 	// load or initialize libraryDB.
 	libDBPath := path.Join(rootPath, "library.sqlite3")
-	id, err := librarydb.LoadLibraryDB(libDBPath)
+	libDB, err := librarydb.LoadLibraryDB(libDBPath)
 	if err != nil {
 		m.mutex.Unlock()
 		return err
 	}
 
+	// register the path as 'scan in progress'.
 	m.progress[rootPath] = struct{}{}
 	m.mutex.Unlock()
 
-	// TODO : receive desc from user
-	newLibrary := newLibrary(id, rootPath, id)
+	libraryID := libDB.GetLibraryID()
+	libraryDesc, _ := libDB.GetMetadata(librarydb.MetadataKeyLibraryDesc)
+	if len(libraryDesc) == 0 {
+		libraryDesc = rootPath
+	}
+
+	newLibrary := newLibrary(libraryID, rootPath, libraryDesc)
 	if err := newLibrary.scan(); err != nil {
 		return err
 	}
 
 	m.mutex.Lock()
 	delete(m.progress, rootPath)
-	m.addLibrary(newLibrary)
+	m.libraries[newLibrary.id] = newLibrary
+	m.rootPaths[newLibrary.rootPath] = struct{}{}
 	m.mutex.Unlock()
 
-	// TODO : what to do if some error happens in here?
-	err = globaldb.InsertLibrary(id, rootPath, id)
-	if err != nil {
-		return err
+	if needGlobalDBInsert {
+		err = globaldb.InsertLibrary(rootPath)
+		// TODO : what to do if some error happens in here?
+		if err != nil {
+			return err
+		}
 	}
 
-	log.Info("library [%s] with root path [%s] is successfully mounted", id, rootPath)
+	log.Info("library [%s] with root path [%s] is successfully mounted", libraryID, rootPath)
 	return nil
-}
-
-func (m *manager) addLibrary(library *Library) {
-	m.libraries[library.id] = library
-	m.rootPaths[library.rootPath] = struct{}{}
 }
 
 func (m *manager) getLibrary(id string) *Library {
@@ -123,21 +127,16 @@ func Initialize() error {
 	}
 
 	for _, row := range libraryRows {
-		library := newLibrary(row.ID, row.RootPath, row.Desc)
-
-		// TODO : library should be re-scanned as albums are not saved in its own db, by now.
-		if err := library.scan(); err != nil {
+		if err = gManager.mountLibrary(row.RootPath, false); err != nil {
 			return err
 		}
-
-		gManager.addLibrary(library)
 	}
 
 	return nil
 }
 
 func MountLibrary(rootPath string) error {
-	return gManager.mountLibrary(rootPath)
+	return gManager.mountLibrary(rootPath, true)
 }
 
 func GetLibrary(id string) *Library {

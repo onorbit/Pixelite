@@ -22,9 +22,9 @@ func initRouter(listenPort int) error {
 	e.GET("/apis/image/:libid/:albumid/:filename", handleServeImage)
 
 	// library APIs.
-	e.POST("/apis/library", createLibrary)
+	e.POST("/apis/library", mountLibrary)
 	e.GET("/apis/library/:id", getLibrary)
-	e.DELETE("/apis/library/:id", deleteLibrary)
+	e.DELETE("/apis/library/:id", unmountLibrary)
 	e.POST("/apis/library/:id/rescan", rescanLibrary)
 	e.GET("/apis/libraries", listLibrary)
 
