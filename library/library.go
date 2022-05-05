@@ -1,26 +1,31 @@
 package library
 
 import (
+	"errors"
 	"io/ioutil"
 	"path/filepath"
 	"sync"
 
 	"github.com/onorbit/pixelite/album"
+	"github.com/onorbit/pixelite/database/librarydb"
 	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/pkg/log"
 )
+
+var ErrLibraryDBNotFound = errors.New("librarydb for the library not found")
 
 type Library struct {
 	id       string
-	desc     string
+	title    string
 	rootPath string
 	albums   map[string]album.Album
 	mutex    sync.Mutex
 }
 
-func newLibrary(id, rootPath, desc string) *Library {
+func newLibrary(id, rootPath, title string) *Library {
 	newLibrary := &Library{
 		id:       id,
-		desc:     desc,
+		title:    title,
 		rootPath: rootPath,
 		albums:   make(map[string]album.Album),
 	}
@@ -80,7 +85,7 @@ func (l *Library) Describe() LibraryDesc {
 
 	desc := LibraryDesc{
 		Id:     l.id,
-		Desc:   l.desc,
+		Title:  l.title,
 		Albums: make([]string, 0, len(l.albums)),
 	}
 
@@ -102,4 +107,22 @@ func (l *Library) GetAlbum(albumID string) *album.Album {
 
 func (l *Library) Rescan() error {
 	return l.scan()
+}
+
+func (l *Library) SetTitle(title string) error {
+	l.title = title
+
+	libdb := librarydb.GetLibraryDB(l.id)
+	if libdb == nil {
+		log.Error("failed to find libraryDB for library [%s] while changing title", l.id)
+		return ErrLibraryDBNotFound
+	}
+
+	err := libdb.SetMetadata(librarydb.MetadataKeyLibraryTitle, title)
+	if err != nil {
+		log.Error("failed to set title [%s] to librarydb [%s] - error [%v]", title, l.id, err.Error())
+		return err
+	}
+
+	return nil
 }

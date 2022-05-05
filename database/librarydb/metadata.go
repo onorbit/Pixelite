@@ -11,7 +11,7 @@ type MetadataRow struct {
 }
 
 const MetadataKeyLibraryID = "id"
-const MetadataKeyLibraryDesc = "desc"
+const MetadataKeyLibraryTitle = "title"
 
 var ErrMetadataNotFound = errors.New("metadata with designated key not found")
 
@@ -63,7 +63,7 @@ func (l *LibraryDB) SetMetadata(key, value string) (err error) {
 	}
 
 	// try insert.
-	_, err = l.db.Exec("INSERT metadata(key, value) VALUES (?, ?)", key, value)
+	_, err = l.db.Exec("INSERT INTO metadata(key, value) VALUES (?, ?)", key, value)
 	if err != nil {
 		panic(err)
 	}

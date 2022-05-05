@@ -5,12 +5,12 @@ function sendRescanRequest(id) {
     })
 }
 
-function makeLibraryElem(id, desc) {
+function makeLibraryElem(id, title) {
     let wrapperElem = document.createElement("div");
 
     // make library link
     let spanElem = document.createElement("span");
-    spanElem.innerText = desc
+    spanElem.innerText = title;
 
     let linkElem = document.createElement("a");
     linkElem.href = sC.renderPath('/library/<str:id>', {id: id});
@@ -35,7 +35,7 @@ function populateLibraries(libList) {
 
     for (let i = 0; i < libList.length; i++) {
         let lib = libList[i];
-        let libElem = makeLibraryElem(lib.id, lib.desc);
+        let libElem = makeLibraryElem(lib.id, lib.title);
         wrapperDiv.appendChild(libElem);
     }
 }

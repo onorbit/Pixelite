@@ -51,7 +51,7 @@ func (m *manager) mountLibrary(rootPath string, needGlobalDBInsert bool) error {
 	m.mutex.Unlock()
 
 	libraryID := libDB.GetLibraryID()
-	libraryDesc, _ := libDB.GetMetadata(librarydb.MetadataKeyLibraryDesc)
+	libraryDesc, _ := libDB.GetMetadata(librarydb.MetadataKeyLibraryTitle)
 	if len(libraryDesc) == 0 {
 		libraryDesc = rootPath
 	}
@@ -151,8 +151,8 @@ func ListLibrary() []LibrarySummeryDesc {
 	ret := make([]LibrarySummeryDesc, 0, len(gManager.libraries))
 	for _, library := range gManager.libraries {
 		summary := LibrarySummeryDesc{
-			Id:   library.id,
-			Desc: library.desc,
+			Id:    library.id,
+			Title: library.title,
 		}
 		ret = append(ret, summary)
 	}

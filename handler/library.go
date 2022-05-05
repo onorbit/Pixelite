@@ -55,6 +55,25 @@ func rescanLibrary(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+func setLibraryTitle(c echo.Context) error {
+	id := c.Param("id")
+	library := library.GetLibrary(id)
+	if library == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	title := c.FormValue("title")
+	if len(title) == 0 {
+		return c.NoContent(http.StatusBadRequest)
+	}
+
+	if err := library.SetTitle(title); err != nil {
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
 func listLibrary(c echo.Context) error {
 	list := library.ListLibrary()
 	return c.JSON(http.StatusOK, list)

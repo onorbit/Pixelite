@@ -26,6 +26,7 @@ func initRouter(listenPort int) error {
 	e.GET("/apis/library/:id", getLibrary)
 	e.DELETE("/apis/library/:id", unmountLibrary)
 	e.POST("/apis/library/:id/rescan", rescanLibrary)
+	e.POST("/apis/library/:id/title", setLibraryTitle)
 	e.GET("/apis/libraries", listLibrary)
 
 	// frontend routes.
