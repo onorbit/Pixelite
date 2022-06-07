@@ -9,6 +9,7 @@ import (
 	"github.com/onorbit/pixelite/album"
 	"github.com/onorbit/pixelite/database/librarydb"
 	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/pkg/fileutils"
 	"github.com/onorbit/pixelite/pkg/log"
 )
 
@@ -55,6 +56,11 @@ func (l *Library) scan() error {
 				path := filepath.Join(currPath, entry.Name())
 				subPaths = append(subPaths, path)
 			} else if image.IsImageFile(entry.Name()) == true {
+				isHidden, err := fileutils.IsHidden(entry.Name())
+				if isHidden || err != nil {
+					continue
+				}
+
 				// found an image. register this path as an Album.
 				if !isRegistered {
 					albumID, _ := filepath.Rel(l.rootPath, currPath)
