@@ -9,3 +9,17 @@ div.thumbnail
     border-radius: 5px;
     box-shadow: 5px 5px 10px #CCC;
 }
+
+div.albumEntry
+{
+    display: inline-block;
+    margin: 20px;
+    padding: 10px;
+    min-width: 50px;
+    min-height: 50px;
+
+    font-size: 9pt;
+
+    border-radius: 5px;
+    box-shadow: 5px 5px 10px #CCC;
+}

@@ -22,9 +22,9 @@ type thumbnailedAlbumKey struct {
 }
 
 type manager struct {
-	progress           map[string]*sync.Cond
 	thumbnailedAlbums  map[thumbnailedAlbumKey]*thumbnailedAlbum
 	recentAccessAlbums map[thumbnailedAlbumKey]struct{}
+	albumCovers        map[thumbnailedAlbumKey]string
 	cancelTickerFunc   context.CancelFunc
 	tickerWaitGroup    sync.WaitGroup
 	mutex              sync.Mutex
@@ -39,17 +39,18 @@ func getAlbumIDHash(albumID string) string {
 
 func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
 	thumbnailLibDir := filepath.Join(config.Get().Thumbnail.StorePath, libraryID)
-	m.mutex.Lock()
 
-	// update access timestamp per album.
 	currTime := time.Now()
 	albumKey := thumbnailedAlbumKey{
 		libraryID: libraryID,
 		albumID:   albumID,
 	}
 
+	m.mutex.Lock()
+
 	albumInfo, ok := m.thumbnailedAlbums[albumKey]
 	if ok {
+		// update access timestamp per album.
 		albumInfo.lastAccessTimestamp = currTime
 		m.recentAccessAlbums[albumKey] = struct{}{}
 	} else {
@@ -64,6 +65,7 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 		albumInfo = newThumbnailedAlbum(databaseID, albumID, currTime, currTime, thumbnailLibDir, true)
 		if albumInfo == nil {
 			// failed to create thumbnail directory.
+			m.mutex.Unlock()
 			return ""
 		}
 
@@ -74,7 +76,7 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 
 	m.mutex.Unlock()
 
-	ret, err := albumInfo.getThumbnailPath(thumbnailLibDir, albumPath, fileName)
+	ret, err := albumInfo.getThumbnailPath(albumPath, fileName)
 	if err != nil {
 		// TODO : add parameters to following log
 		log.Error("failed to get thumbnail path - [%v]", err)
@@ -82,6 +84,31 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 	}
 
 	return ret
+}
+
+func (m *manager) getAlbumCover(fileName, albumPath, albumID, libraryID string) string {
+	albumKey := thumbnailedAlbumKey{
+		libraryID: libraryID,
+		albumID:   albumID,
+	}
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	coverPath, ok := m.albumCovers[albumKey]
+	if ok {
+		// cover exists. return directly.
+		return coverPath
+	}
+
+	// TODO : use progress conditionals to prevent duplicated works.
+	coverPath, err := makeCover(fileName, albumPath, albumID, libraryID)
+	if err != nil {
+		return ""
+	}
+
+	m.albumCovers[albumKey] = coverPath
+	return coverPath
 }
 
 func (m *manager) startTick() {
@@ -160,15 +187,21 @@ func (m *manager) deleteUnusedThumbnails() {
 //-----------------------------------------------------------------------------
 
 func Initialize() error {
-	thumbnailStorePath := config.Get().Thumbnail.StorePath
-	if err := os.MkdirAll(thumbnailStorePath, 0700); err != nil {
+	cfg := config.Get()
+
+	// make paths.
+	if err := os.MkdirAll(cfg.Thumbnail.StorePath, 0700); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(cfg.Cover.StorePath, 0700); err != nil {
 		return err
 	}
 
+	// initialize manager.
 	gManager = manager{
-		progress:           make(map[string]*sync.Cond),
 		thumbnailedAlbums:  make(map[thumbnailedAlbumKey]*thumbnailedAlbum),
 		recentAccessAlbums: make(map[thumbnailedAlbumKey]struct{}),
+		albumCovers:        make(map[thumbnailedAlbumKey]string),
 		mutex:              sync.Mutex{},
 	}
 
@@ -182,7 +215,7 @@ func Initialize() error {
 	albumsByDBID := make(map[int64]*thumbnailedAlbum)
 
 	for _, row := range thumbnailedAlbumRows {
-		thumbnailLibDir := filepath.Join(config.Get().Thumbnail.StorePath, row.LibraryID)
+		thumbnailLibDir := filepath.Join(cfg.Thumbnail.StorePath, row.LibraryID)
 		createTimestamp := time.Unix(row.CreateTimestamp, 0)
 		lastAccessTimestamp := time.Unix(row.LastAccessTimestamp, 0)
 
@@ -225,4 +258,8 @@ func Cleanup() {
 
 func GetThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
 	return gManager.getThumbnailPath(fileName, albumPath, albumID, libraryID)
+}
+
+func GetAlbumCover(fileName, albumPath, albumID, libraryID string) string {
+	return gManager.getAlbumCover(fileName, albumPath, albumID, libraryID)
 }

@@ -12,10 +12,17 @@ type ThumbnailCfg struct {
 	LifetimeUnusedDays int    `json:"lifetime_unused_days"`
 }
 
+type CoverCfg struct {
+	StorePath    string `json:"store_path"`
+	JpegQuality  int    `json:"jpeg_quality"`
+	MaxDimension int    `json:"max_dimension_px"`
+}
+
 type Config struct {
 	ListenPort   int          `json:"listen_port"`
 	GlobalDBPath string       `json:"global_db_path"`
 	Thumbnail    ThumbnailCfg `json:"thumbnail"`
+	Cover        CoverCfg     `json:"cover"`
 }
 
 var gConfig Config

@@ -59,7 +59,7 @@ func (l *Library) scan() error {
 				if !isRegistered {
 					albumID, _ := filepath.Rel(l.rootPath, currPath)
 					albumID = filepath.ToSlash(albumID)
-					newAlbums[albumID] = album.NewAlbum(albumID, currPath)
+					newAlbums[albumID] = album.NewAlbum(albumID, currPath, entry.Name())
 
 					isRegistered = true
 				}

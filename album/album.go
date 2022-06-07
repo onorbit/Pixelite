@@ -9,14 +9,16 @@ import (
 )
 
 type Album struct {
-	id   string
-	path string
+	id            string
+	path          string
+	coverFileName string
 }
 
-func NewAlbum(id, path string) Album {
+func NewAlbum(id, path, coverFileName string) Album {
 	newAlbum := Album{
-		id:   id,
-		path: path,
+		id:            id,
+		path:          path,
+		coverFileName: coverFileName,
 	}
 
 	return newAlbum
@@ -28,6 +30,10 @@ func (a Album) GetID() string {
 
 func (a Album) GetPath() string {
 	return a.path
+}
+
+func (a Album) GetCoverFileName() string {
+	return a.coverFileName
 }
 
 func (a Album) ListImages() ([]string, error) {

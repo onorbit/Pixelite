@@ -1,5 +1,5 @@
 function makeThumbnailElem(libId, albumId, fileName) {
-    let thumbnailUrl = sC.renderPath('/apis/thumbnail/<str:libId>/<str:albumId>/<str:fileName>',
+    let thumbnailUrl = sC.renderPath('/apis/album/thumbnail/<str:libId>/<str:albumId>/<str:fileName>',
                 { libId: libId, albumId: albumId, fileName: encodeURIComponent(fileName) });
 
     let imgElem = document.createElement("img");
@@ -9,7 +9,7 @@ function makeThumbnailElem(libId, albumId, fileName) {
     let divElem = document.createElement("div");
     divElem.className = 'thumbnail';
 
-    let rawImageUrl = sC.renderPath('/apis/image/<str:libId>/<str:albumId>/<str:fileName>',
+    let rawImageUrl = sC.renderPath('/apis/album/image/<str:libId>/<str:albumId>/<str:fileName>',
                 { libId: libId, albumId: albumId, fileName: encodeURIComponent(fileName) });
 
     let linkElem = document.createElement("a");
@@ -40,7 +40,7 @@ function bootStrap() {
     let pathParam = sC.parsePath('/thumbnails/<str:libId>/<str:albumId>', sC.getPath());
 
     // request file list.
-    let apiUrl = sC.renderPath('/apis/list/<str:libId>/<str:albumId>', pathParam);
+    let apiUrl = sC.renderPath('/apis/album/list/<str:libId>/<str:albumId>', pathParam);
     sC.ajaxGet(apiUrl, function(status, response) {
         if (status == 200) {
             let resultObj = JSON.parse(response);

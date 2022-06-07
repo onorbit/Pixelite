@@ -54,7 +54,7 @@ func newThumbnailedAlbum(databaseID int64, albumID string, createTimestamp, last
 	return albumInfo
 }
 
-func (a *thumbnailedAlbum) getThumbnailPath(thumbnailLibPath, albumPath, fileName string) (string, error) {
+func (a *thumbnailedAlbum) getThumbnailPath(albumPath, fileName string) (string, error) {
 	origImgPath := path.Join(albumPath, fileName)
 	thumbnailName := strings.TrimSuffix(fileName, filepath.Ext(fileName)) + ".jpg"
 

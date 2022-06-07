@@ -16,10 +16,11 @@ func initRouter(listenPort int) error {
 	e := echo.New()
 	e.HideBanner = true
 
-	// general APIs.
-	e.GET("/apis/list/:libid/:albumid", handleListPath)
-	e.GET("/apis/thumbnail/:libid/:albumid/:filename", handleServeThumbnail)
-	e.GET("/apis/image/:libid/:albumid/:filename", handleServeImage)
+	// album APIs.
+	e.GET("/apis/album/list/:libid/:albumid", getAlbumImageList)
+	e.GET("/apis/album/image/:libid/:albumid/:filename", getAlbumImage)
+	e.GET("/apis/album/cover/:libid/:albumid", getAlbumCover)
+	e.GET("/apis/album/thumbnail/:libid/:albumid/:filename", getAlbumImageThumbnail)
 
 	// library APIs.
 	e.POST("/apis/library", mountLibrary)
