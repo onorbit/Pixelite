@@ -157,7 +157,7 @@ func (m *manager) syncLastAccessTimeToDB() {
 }
 
 func (m *manager) deleteUnusedThumbnails() {
-	thresholdTime := time.Now().Add(time.Hour * 24 * time.Duration(config.Get().Thumbnail.LifetimeUnusedDays))
+	thresholdTime := time.Now().Add(time.Hour * 24 * time.Duration(config.Get().Thumbnail.LifetimeUnusedDays) * -1)
 	toDelete := make([]*thumbnailedAlbum, 0)
 
 	// select thumbnailedAlbum to delete with lock acquisition.
