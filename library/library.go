@@ -56,7 +56,7 @@ func (l *Library) scan() error {
 				path := filepath.Join(currPath, entry.Name())
 				subPaths = append(subPaths, path)
 			} else if image.IsImageFile(entry.Name()) == true {
-				isHidden, err := fileutils.IsHidden(entry.Name())
+				isHidden, err := fileutils.IsHidden(filepath.Join(currPath, entry.Name()))
 				if isHidden || err != nil {
 					continue
 				}
