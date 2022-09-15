@@ -29,7 +29,7 @@ function populateThumbnails(libId, albumId, fileList) {
         let fileEntry = fileList[i];
 
         if (fileEntry.type == 1) {
-            let thumbnailElem = makeThumbnailElem(libId, albumId, encodeURIComponent(fileEntry.name));
+            let thumbnailElem = makeThumbnailElem(libId, albumId, fileEntry.name);
             wrapperDiv.appendChild(thumbnailElem);
         }
     }
