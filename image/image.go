@@ -11,6 +11,7 @@ import (
 	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
 	"github.com/chai2010/webp"
+	"github.com/rwcarlsen/goexif/exif"
 )
 
 var imageExt = []string{
@@ -21,25 +22,27 @@ var imageExt = []string{
 
 var ErrFormatNotSupported = errors.New("not supported file format")
 
-func openImage(srcPath string) (img image.Image, err error) {
+func openImage(srcPath string) (img image.Image, imgExif *exif.Exif, err error) {
+	imgFile, err := os.Open(srcPath)
+	if err != nil {
+		return
+	}
+	defer imgFile.Close()
+
+	// attempt to extract EXIF information.
+	imgExif, _ = exif.Decode(imgFile)
+	imgFile.Seek(0, io.SeekStart)
+
+	// decode image according to the extension.
 	fileExt := strings.ToLower(filepath.Ext(srcPath))
 	switch fileExt {
 	case ".jpg":
-		img, err = imgio.Open(srcPath)
-		return
+		fallthrough
 	case ".png":
-		img, err = imgio.Open(srcPath)
+		img, _, err = image.Decode(imgFile)
 		return
 	case ".webp":
-		file, oerr := os.Open(srcPath)
-		if oerr != nil {
-			err = oerr
-			return
-		}
-
-		defer file.Close()
-
-		img, err = webp.Decode(file)
+		img, err = webp.Decode(imgFile)
 		return
 	default:
 		err = ErrFormatNotSupported
@@ -60,9 +63,29 @@ func IsImageFile(fileName string) bool {
 }
 
 func MakeThumbnail(srcPath, dstPath string, thumbnailSize, jpegQuality int, squareCrop bool) error {
-	workImage, err := openImage(srcPath)
+	workImage, imgExif, err := openImage(srcPath)
 	if err != nil {
 		return err
+	}
+
+	// rotate if necessary.
+	if imgExif != nil {
+		orientationTag, err := imgExif.Get(exif.Orientation)
+		if !exif.IsTagNotPresentError(err) && orientationTag != nil {
+			orientation, _ := orientationTag.Int(0)
+			switch orientation {
+			case 2:
+				workImage = transform.FlipH(workImage)
+			case 3:
+				workImage = transform.Rotate(workImage, 180.0, &transform.RotationOptions{ResizeBounds: true})
+			case 4:
+				workImage = transform.FlipV(workImage)
+			case 6:
+				workImage = transform.Rotate(workImage, 90, &transform.RotationOptions{ResizeBounds: true})
+			case 8:
+				workImage = transform.Rotate(workImage, 270, &transform.RotationOptions{ResizeBounds: true})
+			}
+		}
 	}
 
 	bounds := workImage.Bounds()
