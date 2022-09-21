@@ -95,7 +95,7 @@ func (a *thumbnailedAlbum) buildThumbnail(origImgPath, thumbnailPath string, con
 	thumbnailJpegQuality := config.Get().Thumbnail.JpegQuality
 
 	// make actual thumbnail.
-	err := image.MakeThumbnail(origImgPath, thumbnailPath, thumbnailDim, thumbnailJpegQuality)
+	err := image.MakeThumbnail(origImgPath, thumbnailPath, thumbnailDim, thumbnailJpegQuality, true)
 	if err != nil {
 		log.Error("failed to make thumbnail image for [%s] - [%v]", origImgPath, err.Error())
 		cond.Broadcast()

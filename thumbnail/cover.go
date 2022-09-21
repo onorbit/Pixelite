@@ -23,7 +23,7 @@ func makeCover(fileName, albumPath, albumID, libraryID string) (string, error) {
 	coverPath := filepath.Join(coverCfg.StorePath, libraryID, coverFileName)
 	origImgPath := filepath.Join(albumPath, fileName)
 
-	if err := image.MakeThumbnail(origImgPath, coverPath, coverCfg.MaxDimension, coverCfg.JpegQuality); err != nil {
+	if err := image.MakeThumbnail(origImgPath, coverPath, coverCfg.MaxDimension, coverCfg.JpegQuality, true); err != nil {
 		log.Error("failed to make cover image for [%s] - [%v]", origImgPath, err.Error())
 		return "", err
 	}
