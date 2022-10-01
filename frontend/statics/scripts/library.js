@@ -1,7 +1,7 @@
 function makeAlbumElem(libraryId, albumSubPath) {
     // container
     let divElem = document.createElement("div");
-    divElem.className = 'albumEntry';
+    divElem.className = 'albumEntry widthLimiter';
 
     // cover image
     let coverUrl = sC.renderPath('/apis/album/cover/<str:libid>/<str:path>',
@@ -35,13 +35,24 @@ function populateLibrary(libDesc) {
 }
 
 function bootStrap() {
+    // fetch albums.
     let pathParam = sC.parsePath('/library/<str:libId>', sC.getPath());
     let apiUrl = sC.renderPath('/apis/library/<str:libId>', pathParam);
-
     sC.ajaxGet(apiUrl, function(status, response) {
         if (status == 200) {
-            let libDesc = JSON.parse(response)
+            let libDesc = JSON.parse(response);
             populateLibrary(libDesc);
+        }
+    });
+
+    // get configuration and set max-width of cover.
+    sC.ajaxGet('/apis/configs', function(status, response) {
+        if (status == 200) {
+            let conf = JSON.parse(response);
+            let coverMaxWidth = conf.coverSize;
+            let classWidthLimiter = '.widthLimiter { max-width: ' + coverMaxWidth + 'px }'
+
+            document.styleSheets[0].insertRule(classWidthLimiter, 0)
         }
     });
 }

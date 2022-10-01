@@ -30,6 +30,9 @@ func initRouter(listenPort int) error {
 	e.POST("/apis/library/:id/title", setLibraryTitle)
 	e.GET("/apis/libraries", listLibrary)
 
+	// miscellaneous APIs.
+	e.GET("/apis/configs", getConfigs)
+
 	// frontend routes.
 	e.GET("/", handleIndex)
 	e.Static("/statics", "frontend/statics")

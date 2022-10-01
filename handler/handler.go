@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo"
+	"github.com/onorbit/pixelite/config"
 )
 
 type DirectoryEntryType byte
@@ -18,8 +19,23 @@ type DirectoryEntry struct {
 	Type DirectoryEntryType `json:"type"`
 }
 
+type Configs struct {
+	ThumbnailSize int `json:"thumbnailSize"`
+	CoverSize     int `json:"coverSize"`
+}
+
 func handleIndex(c echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, "/libraries")
+}
+
+func getConfigs(c echo.Context) error {
+	conf := config.Get()
+
+	ret := Configs{
+		ThumbnailSize: conf.Thumbnail.MaxDimension,
+		CoverSize:     conf.Cover.MaxDimension,
+	}
+	return c.JSON(http.StatusOK, ret)
 }
 
 func Initialize(listenPort int) error {
