@@ -127,27 +127,12 @@ func MakeThumbnail(srcPath, dstPath string, thumbnailSize, jpegQuality int, squa
 		thumbnailHeight = thumbnailSize
 	}
 
-	// serve the original image directly, as it is small enough.
 	if thumbnailWidth == 0 && thumbnailHeight == 0 {
-		srcFile, err := os.Open(srcPath)
-		if err != nil {
-			return err
-		}
-		defer srcFile.Close()
-
-		dstFile, err := os.Open(dstPath)
-		if err != nil {
-			return err
-		}
-		defer dstFile.Close()
-
-		_, err = io.Copy(dstFile, srcFile)
-		return err
+		err = imgio.Save(dstPath, workImage, imgio.JPEGEncoder(jpegQuality))
+	} else {
+		thumbnail := transform.Resize(workImage, thumbnailWidth, thumbnailHeight, transform.CatmullRom)
+		err = imgio.Save(dstPath, thumbnail, imgio.JPEGEncoder(jpegQuality))
 	}
-
-	// perform resize.
-	thumbnail := transform.Resize(workImage, thumbnailWidth, thumbnailHeight, transform.CatmullRom)
-	err = imgio.Save(dstPath, thumbnail, imgio.JPEGEncoder(jpegQuality))
 
 	return err
 }
