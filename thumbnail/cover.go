@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/onorbit/pixelite/config"
-	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/media"
 	"github.com/onorbit/pixelite/pkg/log"
 )
 
@@ -23,7 +23,15 @@ func makeCover(fileName, albumPath, albumID, libraryID string) (string, error) {
 	coverPath := filepath.Join(coverCfg.StorePath, libraryID, coverFileName)
 	origImgPath := filepath.Join(albumPath, fileName)
 
-	if err := image.MakeThumbnail(origImgPath, coverPath, coverCfg.MaxDimension, coverCfg.JpegQuality, true); err != nil {
+	// make actual cover.
+	mediaFile, err := media.LoadMediaFile(origImgPath)
+	if err != nil {
+		log.Error("failed to load media file for cover [%s] - [%v]", origImgPath, err.Error())
+		return "", err
+	}
+
+	err = mediaFile.MakeThumbnail(coverPath, coverCfg.MaxDimension, coverCfg.JpegQuality, true)
+	if err != nil {
 		log.Error("failed to make cover image for [%s] - [%v]", origImgPath, err.Error())
 		return "", err
 	}

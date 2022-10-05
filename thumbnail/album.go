@@ -12,7 +12,7 @@ import (
 
 	"github.com/onorbit/pixelite/config"
 	"github.com/onorbit/pixelite/database/globaldb"
-	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/media"
 	"github.com/onorbit/pixelite/pkg/log"
 )
 
@@ -95,7 +95,14 @@ func (a *thumbnailedAlbum) buildThumbnail(origImgPath, thumbnailPath string, con
 	thumbnailJpegQuality := config.Get().Thumbnail.JpegQuality
 
 	// make actual thumbnail.
-	err := image.MakeThumbnail(origImgPath, thumbnailPath, thumbnailDim, thumbnailJpegQuality, true)
+	mediaFile, err := media.LoadMediaFile(origImgPath)
+	if err != nil {
+		log.Error("failed to load media file for thumbnail [%s] - [%v]", origImgPath, err.Error())
+		cond.Broadcast()
+		return
+	}
+
+	err = mediaFile.MakeThumbnail(thumbnailPath, thumbnailDim, thumbnailJpegQuality, true)
 	if err != nil {
 		log.Error("failed to make thumbnail image for [%s] - [%v]", origImgPath, err.Error())
 		cond.Broadcast()

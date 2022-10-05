@@ -1,7 +1,6 @@
-package image
+package media
 
 import (
-	"errors"
 	"image"
 	"io"
 	"os"
@@ -14,81 +13,79 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 )
 
-var imageExt = []string{
-	".jpg",
-	".png",
-	".webp",
-}
-
-var ErrFormatNotSupported = errors.New("not supported file format")
-
-func openImage(srcPath string) (img image.Image, imgExif *exif.Exif, err error) {
+func imageFileLoader(srcPath string) (MediaFile, error) {
 	imgFile, err := os.Open(srcPath)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer imgFile.Close()
 
 	// attempt to extract EXIF information.
-	imgExif, _ = exif.Decode(imgFile)
+	imgExif, _ := exif.Decode(imgFile)
 	imgFile.Seek(0, io.SeekStart)
 
 	// decode image according to the extension.
+	var imageData image.Image
 	fileExt := strings.ToLower(filepath.Ext(srcPath))
 	switch fileExt {
 	case ".jpg":
 		fallthrough
+	case ".jpeg":
+		fallthrough
 	case ".png":
-		img, _, err = image.Decode(imgFile)
-		return
+		imageData, _, err = image.Decode(imgFile)
 	case ".webp":
-		img, err = webp.Decode(imgFile)
-		return
+		imageData, err = webp.Decode(imgFile)
 	default:
 		err = ErrFormatNotSupported
-		return
-	}
-}
-
-func IsImageFile(fileName string) bool {
-	fileExt := filepath.Ext(fileName)
-	fileExt = strings.ToLower(fileExt)
-	for _, ext := range imageExt {
-		if ext == fileExt {
-			return true
-		}
 	}
 
-	return false
-}
-
-func MakeThumbnail(srcPath, dstPath string, thumbnailSize, jpegQuality int, squareCrop bool) error {
-	workImage, imgExif, err := openImage(srcPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	ret := &imageFile{
+		imageData: imageData,
+		exifData:  imgExif,
+	}
+
+	return ret, nil
+}
+
+func registerImageLoaders() {
+	gMediaFileLoaders[".jpg"] = imageFileLoader
+	gMediaFileLoaders[".jpeg"] = imageFileLoader
+	gMediaFileLoaders[".png"] = imageFileLoader
+	gMediaFileLoaders[".webp"] = imageFileLoader
+}
+
+type imageFile struct {
+	imageData image.Image
+	exifData  *exif.Exif
+}
+
+func (i *imageFile) MakeThumbnail(dstPath string, thumbnailSize, jpegQuality int, squareCrop bool) error {
 	// rotate if necessary.
-	if imgExif != nil {
-		orientationTag, err := imgExif.Get(exif.Orientation)
+	if i.exifData != nil {
+		orientationTag, err := i.exifData.Get(exif.Orientation)
 		if !exif.IsTagNotPresentError(err) && orientationTag != nil {
 			orientation, _ := orientationTag.Int(0)
 			switch orientation {
 			case 2:
-				workImage = transform.FlipH(workImage)
+				i.imageData = transform.FlipH(i.imageData)
 			case 3:
-				workImage = transform.Rotate(workImage, 180.0, &transform.RotationOptions{ResizeBounds: true})
+				i.imageData = transform.Rotate(i.imageData, 180.0, &transform.RotationOptions{ResizeBounds: true})
 			case 4:
-				workImage = transform.FlipV(workImage)
+				i.imageData = transform.FlipV(i.imageData)
 			case 6:
-				workImage = transform.Rotate(workImage, 90, &transform.RotationOptions{ResizeBounds: true})
+				i.imageData = transform.Rotate(i.imageData, 90, &transform.RotationOptions{ResizeBounds: true})
 			case 8:
-				workImage = transform.Rotate(workImage, 270, &transform.RotationOptions{ResizeBounds: true})
+				i.imageData = transform.Rotate(i.imageData, 270, &transform.RotationOptions{ResizeBounds: true})
 			}
 		}
 	}
 
-	bounds := workImage.Bounds()
+	bounds := i.imageData.Bounds()
 	imageWidth := bounds.Dx()
 	imageHeight := bounds.Dy()
 
@@ -113,7 +110,7 @@ func MakeThumbnail(srcPath, dstPath string, thumbnailSize, jpegQuality int, squa
 			imageHeight = imageWidth
 		}
 
-		workImage = transform.Crop(workImage, cropRect)
+		i.imageData = transform.Crop(i.imageData, cropRect)
 	}
 
 	// determine thumbnail size.
@@ -127,10 +124,11 @@ func MakeThumbnail(srcPath, dstPath string, thumbnailSize, jpegQuality int, squa
 		thumbnailHeight = thumbnailSize
 	}
 
+	var err error
 	if thumbnailWidth == 0 && thumbnailHeight == 0 {
-		err = imgio.Save(dstPath, workImage, imgio.JPEGEncoder(jpegQuality))
+		err = imgio.Save(dstPath, i.imageData, imgio.JPEGEncoder(jpegQuality))
 	} else {
-		thumbnail := transform.Resize(workImage, thumbnailWidth, thumbnailHeight, transform.CatmullRom)
+		thumbnail := transform.Resize(i.imageData, thumbnailWidth, thumbnailHeight, transform.CatmullRom)
 		err = imgio.Save(dstPath, thumbnail, imgio.JPEGEncoder(jpegQuality))
 	}
 

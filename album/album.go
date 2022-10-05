@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/media"
 	"github.com/onorbit/pixelite/pkg/fileutils"
 )
 
@@ -48,7 +48,7 @@ func (a Album) ListImages() ([]string, error) {
 			continue
 		}
 
-		if !image.IsImageFile(entry.Name()) {
+		if !media.IsSupportedMedia(entry.Name()) {
 			continue
 		}
 

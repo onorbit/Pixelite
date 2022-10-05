@@ -12,17 +12,21 @@ import (
 	"github.com/onorbit/pixelite/database/librarydb"
 	"github.com/onorbit/pixelite/handler"
 	"github.com/onorbit/pixelite/library"
+	"github.com/onorbit/pixelite/media"
 	"github.com/onorbit/pixelite/pkg/log"
 	"github.com/onorbit/pixelite/thumbnail"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	conf := config.Get()
+
+	media.Initialize()
 
 	if err := config.Initialize("pixelite.json"); err != nil {
 		panic(err)
 	}
+	conf := config.Get()
+
 	if err := globaldb.Initialize(conf.GlobalDBPath); err != nil {
 		panic(err)
 	}

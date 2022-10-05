@@ -8,7 +8,7 @@ import (
 
 	"github.com/onorbit/pixelite/album"
 	"github.com/onorbit/pixelite/database/librarydb"
-	"github.com/onorbit/pixelite/image"
+	"github.com/onorbit/pixelite/media"
 	"github.com/onorbit/pixelite/pkg/fileutils"
 	"github.com/onorbit/pixelite/pkg/log"
 )
@@ -55,7 +55,7 @@ func (l *Library) scan() error {
 				// found a directory. push to subpath list for further traverse.
 				path := filepath.Join(currPath, entry.Name())
 				subPaths = append(subPaths, path)
-			} else if image.IsImageFile(entry.Name()) == true {
+			} else if media.IsSupportedMedia(entry.Name()) == true {
 				isHidden, err := fileutils.IsHidden(filepath.Join(currPath, entry.Name()))
 				if isHidden || err != nil {
 					continue
