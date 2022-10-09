@@ -31,7 +31,7 @@ func getAlbumImageList(c echo.Context) error {
 	}
 
 	// list content of album path.
-	imageList, err := targetAlbum.ListImages()
+	imageList, err := targetAlbum.ListMedias()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
