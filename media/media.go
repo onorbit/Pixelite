@@ -20,6 +20,7 @@ func Initialize() {
 	gMediaFileLoaders = make(map[string]MediaFileLoader)
 
 	registerImageLoaders()
+	registerMovieLoaders()
 }
 
 func IsSupportedMedia(fileName string) bool {
