@@ -18,6 +18,13 @@ type ThumbnailedAlbumRow struct {
 	LastAccessTimestamp int64  `db:"last_access_timestamp"`
 }
 
+type AlbumCoverRow struct {
+	LibraryID           string `db:"library_id"`
+	AlbumID             string `db:"album_id"`
+	CoverPath           string `db:"cover_path"`
+	LastAccessTimestamp int64  `db:"last_access_timestamp"`
+}
+
 func initThumbnails() error {
 	// thumbnails table and index.
 	schemaThumbnails := `
@@ -49,6 +56,20 @@ func initThumbnails() error {
 		return err
 	}
 
+	// album_covers table.
+	schemaAlbumCovers := `
+		CREATE TABLE IF NOT EXISTS album_covers (
+			library_id TEXT,
+			album_id TEXT,
+			cover_path TEXT,
+			last_access_timestamp INTEGER,
+			PRIMARY KEY (library_id, album_id)
+		)`
+
+	if _, err := gDatabase.Exec(schemaAlbumCovers); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -70,6 +91,12 @@ func InsertThumbnailedAlbum(libraryID, albumID string) (int64, error) {
 	}
 
 	return id, nil
+}
+
+func InsertAlbumCover(libraryID, albumID, coverPath string) error {
+	currTime := time.Now()
+	_, err := gDatabase.Exec("INSERT INTO album_covers (library_id, album_id, cover_path, last_access_timestamp) values (?, ?, ?, ?)", libraryID, albumID, coverPath, currTime.Unix())
+	return err
 }
 
 // DeleteThumbnailedAlbum deletes both thumbnailed_albums table entry and belonging thumbnails table entries.
@@ -113,6 +140,15 @@ func LoadAllThumbnails() ([]ThumbnailRow, error) {
 func LoadAllThumbnailedAlbums() ([]ThumbnailedAlbumRow, error) {
 	ret := []ThumbnailedAlbumRow{}
 	if err := gDatabase.Select(&ret, "SELECT id, library_id, album_id, create_timestamp, last_access_timestamp FROM thumbnailed_albums"); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func LoadAllAlbumCovers() ([]AlbumCoverRow, error) {
+	ret := []AlbumCoverRow{}
+	if err := gDatabase.Select(&ret, "SELECT library_id, album_id, cover_path, last_access_timestamp FROM album_covers"); err != nil {
 		return nil, err
 	}
 

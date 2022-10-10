@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -16,28 +15,22 @@ import (
 
 const tickIntervalMinutes = 5
 
-type thumbnailedAlbumKey struct {
-	libraryID string
-	albumID   string
-}
-
-type manager struct {
+type albumManager struct {
 	thumbnailedAlbums  map[thumbnailedAlbumKey]*thumbnailedAlbum
 	recentAccessAlbums map[thumbnailedAlbumKey]struct{}
-	albumCovers        map[thumbnailedAlbumKey]string
 	cancelTickerFunc   context.CancelFunc
 	tickerWaitGroup    sync.WaitGroup
 	mutex              sync.Mutex
 }
 
-var gManager manager
+var gAlbumManager albumManager
 
 func getAlbumIDHash(albumID string) string {
 	albumIDHashArr := md5.Sum([]byte(albumID))
 	return hex.EncodeToString(albumIDHashArr[:])
 }
 
-func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
+func (m *albumManager) getThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
 	thumbnailLibDir := filepath.Join(config.Get().Thumbnail.StorePath, libraryID)
 
 	currTime := time.Now()
@@ -86,32 +79,54 @@ func (m *manager) getThumbnailPath(fileName, albumPath, albumID, libraryID strin
 	return ret
 }
 
-func (m *manager) getAlbumCover(fileName, albumPath, albumID, libraryID string) string {
-	albumKey := thumbnailedAlbumKey{
-		libraryID: libraryID,
-		albumID:   albumID,
-	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	coverPath, ok := m.albumCovers[albumKey]
-	if ok {
-		// cover exists. return directly.
-		return coverPath
-	}
-
-	// TODO : use progress conditionals to prevent duplicated works.
-	coverPath, err := makeCover(fileName, albumPath, albumID, libraryID)
+func (m *albumManager) loadFromGlobalDB() error {
+	// load thumbnailed albums from global DB.
+	thumbnailedAlbumRows, err := globaldb.LoadAllThumbnailedAlbums()
 	if err != nil {
-		return ""
+		return err
 	}
 
-	m.albumCovers[albumKey] = coverPath
-	return coverPath
+	// temporary index for initial loading.
+	cfg := config.Get()
+	albumsByDBID := make(map[int64]*thumbnailedAlbum)
+
+	for _, row := range thumbnailedAlbumRows {
+		thumbnailLibDir := filepath.Join(cfg.Thumbnail.StorePath, row.LibraryID)
+		createTimestamp := time.Unix(row.CreateTimestamp, 0)
+		lastAccessTimestamp := time.Unix(row.LastAccessTimestamp, 0)
+
+		entry := newThumbnailedAlbum(row.ID, row.AlbumID, createTimestamp, lastAccessTimestamp, thumbnailLibDir, false)
+		key := thumbnailedAlbumKey{
+			libraryID: row.LibraryID,
+			albumID:   row.AlbumID,
+		}
+
+		m.thumbnailedAlbums[key] = entry
+
+		// index the entry for further loading.
+		albumsByDBID[row.ID] = entry
+	}
+
+	// load thumbnails from global DB.
+	thumbnailRows, err := globaldb.LoadAllThumbnails()
+	if err != nil {
+		return err
+	}
+
+	for _, row := range thumbnailRows {
+		thumbnailedAlbum, ok := albumsByDBID[row.ThumbnailedAlbumID]
+		if !ok {
+			// TODO : remove the row and thumbnail file.
+			continue
+		}
+
+		thumbnailedAlbum.thumbnails[row.ImagePath] = row.ThumbnailPath
+	}
+
+	return nil
 }
 
-func (m *manager) startTick() {
+func (m *albumManager) startTick() {
 	tickFunc := func(ctx context.Context, wg *sync.WaitGroup) {
 		ticker := time.NewTicker(tickIntervalMinutes * time.Minute)
 
@@ -119,11 +134,11 @@ func (m *manager) startTick() {
 			select {
 			case <-ctx.Done():
 				wg.Done()
-				gManager.syncLastAccessTimeToDB()
+				gAlbumManager.syncLastAccessTimeToDB()
 				return
 			case <-ticker.C:
-				gManager.syncLastAccessTimeToDB()
-				gManager.deleteUnusedThumbnails()
+				gAlbumManager.syncLastAccessTimeToDB()
+				gAlbumManager.deleteUnusedThumbnails()
 			}
 		}
 	}
@@ -137,14 +152,14 @@ func (m *manager) startTick() {
 	log.Info("thumbnail manager starts ticking")
 }
 
-func (m *manager) stopTick() {
+func (m *albumManager) stopTick() {
 	m.cancelTickerFunc()
 	m.tickerWaitGroup.Wait()
 
 	log.Info("thumbnail manager stopped ticking")
 }
 
-func (m *manager) syncLastAccessTimeToDB() {
+func (m *albumManager) syncLastAccessTimeToDB() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -156,7 +171,7 @@ func (m *manager) syncLastAccessTimeToDB() {
 	}
 }
 
-func (m *manager) deleteUnusedThumbnails() {
+func (m *albumManager) deleteUnusedThumbnails() {
 	thresholdTime := time.Now().Add(time.Hour * 24 * time.Duration(config.Get().Thumbnail.LifetimeUnusedDays) * -1)
 	toDelete := make([]*thumbnailedAlbum, 0)
 
@@ -180,86 +195,4 @@ func (m *manager) deleteUnusedThumbnails() {
 	for _, albumInfo := range toDelete {
 		albumInfo.cleanUp()
 	}
-}
-
-//-----------------------------------------------------------------------------
-// public functions
-//-----------------------------------------------------------------------------
-
-func Initialize() error {
-	cfg := config.Get()
-
-	// make paths.
-	if err := os.MkdirAll(cfg.Thumbnail.StorePath, 0700); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(cfg.Cover.StorePath, 0700); err != nil {
-		return err
-	}
-
-	// initialize manager.
-	gManager = manager{
-		thumbnailedAlbums:  make(map[thumbnailedAlbumKey]*thumbnailedAlbum),
-		recentAccessAlbums: make(map[thumbnailedAlbumKey]struct{}),
-		albumCovers:        make(map[thumbnailedAlbumKey]string),
-		mutex:              sync.Mutex{},
-	}
-
-	// load thumbnailed albums from global DB.
-	thumbnailedAlbumRows, err := globaldb.LoadAllThumbnailedAlbums()
-	if err != nil {
-		return err
-	}
-
-	// temporary index for initial loading.
-	albumsByDBID := make(map[int64]*thumbnailedAlbum)
-
-	for _, row := range thumbnailedAlbumRows {
-		thumbnailLibDir := filepath.Join(cfg.Thumbnail.StorePath, row.LibraryID)
-		createTimestamp := time.Unix(row.CreateTimestamp, 0)
-		lastAccessTimestamp := time.Unix(row.LastAccessTimestamp, 0)
-
-		entry := newThumbnailedAlbum(row.ID, row.AlbumID, createTimestamp, lastAccessTimestamp, thumbnailLibDir, false)
-		key := thumbnailedAlbumKey{
-			libraryID: row.LibraryID,
-			albumID:   row.AlbumID,
-		}
-
-		gManager.thumbnailedAlbums[key] = entry
-
-		// index the entry for further loading.
-		albumsByDBID[row.ID] = entry
-	}
-
-	// load thumbnails from global DB.
-	thumbnailRows, err := globaldb.LoadAllThumbnails()
-	if err != nil {
-		return err
-	}
-
-	for _, row := range thumbnailRows {
-		thumbnailedAlbum, ok := albumsByDBID[row.ThumbnailedAlbumID]
-		if !ok {
-			// TODO : remove the row and thumbnail file.
-			continue
-		}
-
-		thumbnailedAlbum.thumbnails[row.ImagePath] = row.ThumbnailPath
-	}
-
-	gManager.startTick()
-
-	return nil
-}
-
-func Cleanup() {
-	gManager.stopTick()
-}
-
-func GetThumbnailPath(fileName, albumPath, albumID, libraryID string) string {
-	return gManager.getThumbnailPath(fileName, albumPath, albumID, libraryID)
-}
-
-func GetAlbumCover(fileName, albumPath, albumID, libraryID string) string {
-	return gManager.getAlbumCover(fileName, albumPath, albumID, libraryID)
 }
