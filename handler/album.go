@@ -3,10 +3,13 @@ package handler
 import (
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/labstack/echo"
 	"github.com/onorbit/pixelite/library"
+	"github.com/onorbit/pixelite/media"
 	"github.com/onorbit/pixelite/thumbnail"
 )
 
@@ -62,6 +65,16 @@ func getAlbumImage(c echo.Context) error {
 	fileName := c.Param("filename")
 	fileName, err = url.QueryUnescape(fileName)
 	if err != nil {
+		return c.NoContent(http.StatusBadRequest)
+	}
+
+	// check if the fileName is supported media file type.
+	if !media.IsSupportedMedia(fileName) {
+		return c.NoContent(http.StatusBadRequest)
+	}
+
+	// check if the fileName contains PathSeparator, which may lead to other path.
+	if strings.ContainsRune(fileName, os.PathSeparator) {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
