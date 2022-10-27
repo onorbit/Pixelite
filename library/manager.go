@@ -2,6 +2,7 @@ package library
 
 import (
 	"errors"
+	"os"
 	"path"
 	"sync"
 
@@ -12,6 +13,7 @@ import (
 
 var ErrLibraryAlreadyMounted = errors.New("Library with given root path is already mounted")
 var ErrLibraryScanInProgress = errors.New("Library with given root path is being scanned")
+var ErrLibraryDBFileNotFound = errors.New("Library database file not found")
 var ErrLibraryNotFound = errors.New("Library with given ID is not found")
 
 type manager struct {
@@ -24,22 +26,33 @@ type manager struct {
 var gManager manager
 
 func (m *manager) mountLibrary(rootPath string, needGlobalDBInsert bool) error {
+	// check if the database file exists.
+	libDBPath := path.Join(rootPath, "library.sqlite3")
+	if stat, err := os.Stat(libDBPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return ErrLibraryDBFileNotFound
+		} else {
+			return err
+		}
+	} else if stat.IsDir() {
+		return ErrLibraryDBFileNotFound
+	}
+
 	m.mutex.Lock()
 
 	// check if the path is already mounted.
-	if _, ok := m.rootPaths[rootPath]; ok == true {
+	if _, ok := m.rootPaths[rootPath]; ok {
 		m.mutex.Unlock()
 		return ErrLibraryAlreadyMounted
 	}
 
 	// or being mounted and scanned.
-	if _, ok := m.progress[rootPath]; ok == true {
+	if _, ok := m.progress[rootPath]; ok {
 		m.mutex.Unlock()
 		return ErrLibraryScanInProgress
 	}
 
 	// load or initialize libraryDB.
-	libDBPath := path.Join(rootPath, "library.sqlite3")
 	libDB, err := librarydb.LoadLibraryDB(libDBPath)
 	if err != nil {
 		m.mutex.Unlock()
@@ -83,7 +96,7 @@ func (m *manager) getLibrary(id string) *Library {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if _, ok := m.libraries[id]; ok == false {
+	if _, ok := m.libraries[id]; ok {
 		return nil
 	}
 
@@ -93,7 +106,7 @@ func (m *manager) getLibrary(id string) *Library {
 func (m *manager) unmountLibrary(id string) error {
 	m.mutex.Lock()
 
-	if _, ok := m.libraries[id]; ok == true {
+	if _, ok := m.libraries[id]; ok {
 		delete(m.libraries, id)
 	} else {
 		m.mutex.Unlock()
@@ -128,6 +141,10 @@ func Initialize() error {
 
 	for _, row := range libraryRows {
 		if err = gManager.mountLibrary(row.RootPath, false); err != nil {
+			if err == ErrLibraryDBFileNotFound {
+				log.Warn("library DB file not found at [%s], unmounting", row.RootPath)
+				globaldb.DeleteLibrary(row.RootPath)
+			}
 			return err
 		}
 	}
