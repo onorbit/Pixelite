@@ -96,7 +96,7 @@ func (m *manager) getLibrary(id string) *Library {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if _, ok := m.libraries[id]; ok {
+	if _, ok := m.libraries[id]; !ok {
 		return nil
 	}
 
@@ -144,6 +144,8 @@ func Initialize() error {
 			if err == ErrLibraryDBFileNotFound {
 				log.Warn("library DB file not found at [%s], unmounting", row.RootPath)
 				globaldb.DeleteLibrary(row.RootPath)
+
+				continue
 			}
 			return err
 		}

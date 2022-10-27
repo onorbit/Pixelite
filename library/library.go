@@ -51,11 +51,11 @@ func (l *Library) scan() error {
 
 		isRegistered := false
 		for _, entry := range content {
-			if entry.IsDir() == true {
+			if entry.IsDir() {
 				// found a directory. push to subpath list for further traverse.
 				path := filepath.Join(currPath, entry.Name())
 				subPaths = append(subPaths, path)
-			} else if media.IsSupportedMedia(entry.Name()) == true {
+			} else if media.IsSupportedMedia(entry.Name()) {
 				isHidden, err := fileutils.IsHidden(filepath.Join(currPath, entry.Name()))
 				if isHidden || err != nil {
 					continue
