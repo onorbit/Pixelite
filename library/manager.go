@@ -25,12 +25,14 @@ type manager struct {
 
 var gManager manager
 
-func (m *manager) mountLibrary(rootPath string, needGlobalDBInsert bool) error {
+func (m *manager) mountLibrary(rootPath string, isNewLibrary bool) error {
 	// check if the database file exists.
 	libDBPath := path.Join(rootPath, "library.sqlite3")
 	if stat, err := os.Stat(libDBPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return ErrLibraryDBFileNotFound
+			if !isNewLibrary {
+				return ErrLibraryDBFileNotFound
+			}
 		} else {
 			return err
 		}
@@ -80,7 +82,7 @@ func (m *manager) mountLibrary(rootPath string, needGlobalDBInsert bool) error {
 	m.rootPaths[newLibrary.rootPath] = struct{}{}
 	m.mutex.Unlock()
 
-	if needGlobalDBInsert {
+	if isNewLibrary {
 		err = globaldb.InsertLibrary(rootPath)
 		// TODO : what to do if some error happens in here?
 		if err != nil {
