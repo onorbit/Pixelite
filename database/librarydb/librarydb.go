@@ -26,7 +26,13 @@ func newLibraryDB(dbFilePath string) (*LibraryDB, error) {
 	}
 
 	// initialize tables and stuff if necessary.
-	libDB.initMetadata()
+	if err = libDB.initMetadata(); err != nil {
+		return nil, err
+	}
+
+	if err = libDB.initAlbums(); err != nil {
+		return nil, err
+	}
 
 	// load or generate ID.
 	id, err := libDB.GetMetadata(MetadataKeyLibraryID)
