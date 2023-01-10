@@ -18,8 +18,6 @@ var ErrLibraryNotFound = errors.New("Library with given ID is not found")
 
 type manager struct {
 	libraries map[string]*Library
-	rootPaths map[string]struct{}
-	progress  map[string]struct{}
 	mutex     sync.Mutex
 }
 
@@ -41,29 +39,20 @@ func (m *manager) mountLibrary(rootPath string, isNewLibrary bool) error {
 	}
 
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// check if the path is already mounted.
-	if _, ok := m.rootPaths[rootPath]; ok {
-		m.mutex.Unlock()
-		return ErrLibraryAlreadyMounted
-	}
-
-	// or being mounted and scanned.
-	if _, ok := m.progress[rootPath]; ok {
-		m.mutex.Unlock()
-		return ErrLibraryScanInProgress
+	for _, lib := range m.libraries {
+		if lib.rootPath == rootPath {
+			return ErrLibraryAlreadyMounted
+		}
 	}
 
 	// load or initialize libraryDB.
 	libDB, err := librarydb.LoadLibraryDB(libDBPath)
 	if err != nil {
-		m.mutex.Unlock()
 		return err
 	}
-
-	// register the path as 'scan in progress'.
-	m.progress[rootPath] = struct{}{}
-	m.mutex.Unlock()
 
 	libraryID := libDB.GetLibraryID()
 	libraryDesc, _ := libDB.GetMetadata(librarydb.MetadataKeyLibraryTitle)
@@ -75,13 +64,7 @@ func (m *manager) mountLibrary(rootPath string, isNewLibrary bool) error {
 	if err := newLibrary.scan(); err != nil {
 		return err
 	}
-
-	m.mutex.Lock()
-	delete(m.progress, rootPath)
 	m.libraries[newLibrary.id] = newLibrary
-	m.rootPaths[newLibrary.rootPath] = struct{}{}
-	m.mutex.Unlock()
-
 	if isNewLibrary {
 		err = globaldb.InsertLibrary(rootPath)
 		// TODO : what to do if some error happens in here?
@@ -131,8 +114,6 @@ func (m *manager) unmountLibrary(id string) error {
 func Initialize() error {
 	gManager = manager{
 		libraries: make(map[string]*Library),
-		rootPaths: make(map[string]struct{}),
-		progress:  make(map[string]struct{}),
 		mutex:     sync.Mutex{},
 	}
 
