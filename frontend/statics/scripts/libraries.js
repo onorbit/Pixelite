@@ -1,8 +1,15 @@
 function sendRescanRequest(id) {
-    let rescanUrl = sC.renderPath('apis/library/<str:id>/rescan', {id: id})
+    let rescanUrl = sC.renderPath('apis/library/<str:id>/rescan', {id: id});
     sC.ajaxPost(rescanUrl, null, function(status, response) {
         // TODO : notification?
-    })
+    });
+}
+
+function sendUnmountRequest(id) {
+    let unmountUrl = sC.renderPath('apis/library/<str:id>', {id: id});
+    sC.ajaxDelete(unmountUrl, function(status, response) {
+        location.reload();
+    });
 }
 
 function makeLibraryElem(id, title) {
@@ -26,6 +33,14 @@ function makeLibraryElem(id, title) {
 
     // append rescan button to wrapper
     wrapperElem.appendChild(rescanButtonElem);
+
+    // make unmount button
+    let unmountButtonElem = document.createElement("span");
+    unmountButtonElem.innerText = "unmount";
+    unmountButtonElem.addEventListener('click', function() { sendUnmountRequest(id); })
+
+    // append rescan button to wrapper
+    wrapperElem.appendChild(unmountButtonElem);
 
     return wrapperElem;
 }

@@ -91,19 +91,25 @@ func (m *manager) getLibrary(id string) *Library {
 func (m *manager) unmountLibrary(id string) error {
 	m.mutex.Lock()
 
-	if _, ok := m.libraries[id]; ok {
+	library, ok := m.libraries[id]
+	if ok {
 		delete(m.libraries, id)
 	} else {
 		m.mutex.Unlock()
+		log.Warn("failed to unmount library [%s] as not found", id)
 		return ErrLibraryNotFound
 	}
 
 	librarydb.UnloadLibraryDB(id)
-
 	m.mutex.Unlock()
 
-	// TODO : what to do if some error happens in here?
-	err := globaldb.DeleteLibrary(id)
+	err := globaldb.DeleteLibrary(library.rootPath)
+	if err != nil {
+		// TODO : what to do if some error happens in here?
+	}
+
+	log.Info("library [%s] unmounted successfully", id)
+
 	return err
 }
 
